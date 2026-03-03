@@ -1,0 +1,99 @@
+---
+title: "List Rooms"
+api: "GET /api/rooms"
+description: "Get a list of all public chat rooms"
+---
+
+## Overview
+
+Returns a list of all public chat rooms available in the system. Each room includes information about whether the authenticated user has joined it. Private rooms are not included in this listing.
+
+## Authentication
+
+Requires a valid authentication token in the Authorization header.
+
+## Request
+
+### Headers
+
+<ParamField header="Authorization" type="string" required>
+  User authentication token
+</ParamField>
+
+## Response
+
+<ResponseField name="rooms" type="array">
+  Array of public room objects
+  
+  <ResponseField name="room_id" type="integer">
+    The unique ID of the room
+  </ResponseField>
+  
+  <ResponseField name="name" type="string">
+    The name of the room
+  </ResponseField>
+  
+  <ResponseField name="joined" type="boolean">
+    Indicates whether the authenticated user is a member of this room
+  </ResponseField>
+</ResponseField>
+
+## Status Codes
+
+- **200**: Successfully retrieved room list
+- **400**: Missing token
+- **401**: Unauthorized - invalid token
+
+## Error Responses
+
+### Missing Token
+```json
+{
+  "error": "missing token"
+}
+```
+
+### Unauthorized
+```json
+{
+  "error": "unauthorized"
+}
+```
+
+## Example
+
+```bash
+curl -X GET https://api.mirage.com/api/rooms \
+  -H "Authorization: your-auth-token"
+```
+
+### Success Response
+
+```json
+{
+  "rooms": [
+    {
+      "room_id": 1,
+      "name": "General Discussion",
+      "joined": true
+    },
+    {
+      "room_id": 2,
+      "name": "Tech Talk",
+      "joined": false
+    },
+    {
+      "room_id": 5,
+      "name": "Random",
+      "joined": true
+    }
+  ]
+}
+```
+
+## Notes
+
+- Only public rooms (where `is_private=0`) are returned.
+- Private rooms are not visible through this endpoint.
+- The `joined` field helps clients display which rooms the user is already a member of.
+- The system enforces a maximum of 5 public rooms total.

@@ -1,0 +1,301 @@
+---
+title: 'Chat Rooms'
+description: 'Real-time group chat rooms with public and private options in Mirage'
+icon: 'messages'
+---
+
+Mirage's chat room feature enables real-time group conversations with support for both public and private rooms, password protection, and temporary message storage.
+
+## Creating a Chat Room
+
+Create your own chat room to start conversations with other Mirage users.
+
+<Steps>
+  <Step title="Choose Room Type">
+    Decide between public or private:
+    - **Public Rooms**: Discoverable by all users, anyone can join
+    - **Private Rooms**: Require a password to join, invite-only
+  </Step>
+  
+  <Step title="Name Your Room">
+    Choose a unique name for your room (must not already exist)
+  </Step>
+  
+  <Step title="Set Password (Private Only)">
+    For private rooms, create a secure password that you'll share with intended members
+  </Step>
+  
+  <Step title="Room Created">
+    You're automatically added as the first member and can start inviting others
+  </Step>
+</Steps>
+
+### Room Creation Code
+
+```python app/routes/chat.py:13-70
+@chat_bp.route('/api/create_room', methods=['POST'])
+def create_room():
+    data = request.get_json()
+    room_name = data.get('room_name', '').strip()
+    is_private = int(data.get('is_private', 0))
+    password = data.get('password', '').strip() if is_private else None
+    token = request.headers.get('Authorization')
+
+    # Validate token and user
+    c.execute('SELECT username FROM users WHERE token=?', (token,))
+    user = c.fetchone()
+    if not user:
+        return jsonify({'error': "unauthorized"}), 401
+
+    # Check if room already exists
+    c.execute('SELECT id FROM rooms WHERE name=?', (room_name,))
+    if c.fetchone():
+        return jsonify({'error': "room already exists"}), 400
+
+    # Hash password if private
+    pw_hash = hash_pw(password) if is_private else None
+
+    # Create room and add creator as first member
+    c.execute('INSERT INTO rooms (name, is_private, password_hash) VALUES (?, ?, ?)', (room_name, is_private, pw_hash))
+    room_id = c.lastrowid
+    c.execute('INSERT INTO room_members (room_id, username) VALUES (?, ?)', (room_id, user[0]))
+```
+
+<Warning>
+  **Public Room Limit**: Mirage allows a maximum of 5 public rooms to maintain server performance. Consider creating a private room if you reach this limit.
+</Warning>
+
+## Joining Rooms
+
+Discover and join existing chat rooms to participate in conversations.
+
+<Tabs>
+  <Tab title="Public Rooms">
+    Browse the list of public rooms and join with a single click:
+    
+    ```python app/routes/chat.py:195-225
+    @chat_bp.route('/api/rooms', methods=['GET'])
+    def list_rooms():
+        # Get all public rooms
+        c.execute('SELECT id, name FROM rooms WHERE is_private=0')
+        rooms = c.fetchall()
+        
+        # Check which rooms user is already in
+        c.execute('SELECT room_id FROM room_members WHERE username=?', (user[0],))
+        user_rooms_set = {r[0] for r in c.fetchall()}
+        
+        data = []
+        for room_id, name in rooms:
+            data.append({
+                'room_id': room_id,
+                'name': name,
+                'joined': room_id in user_rooms_set
+            })
+    ```
+  </Tab>
+  
+  <Tab title="Private Rooms">
+    Join private rooms using the room name and password:
+    
+    ```python app/routes/chat.py:103-109
+    # Verify password for private rooms
+    if is_private:
+        if not password:
+            return jsonify({'error': 'password required'}), 403
+        if stored_hash != hash_pw(password):
+            return jsonify({'error': 'wrong password'}), 403
+    ```
+    
+    <Info>Private room passwords are hashed before comparison for security</Info>
+  </Tab>
+  
+  <Tab title="Your Rooms">
+    View all rooms you're a member of:
+    
+    ```python app/routes/chat.py:252-281
+    @chat_bp.route('/api/user_rooms', methods=['GET'])
+    def user_rooms():
+        # Get all rooms the user is a member of
+        c.execute('''SELECT r.id, r.name, r.is_private 
+                     FROM rooms r 
+                     JOIN room_members rm ON r.id = rm.room_id 
+                     WHERE rm.username=?''', (username,))
+        rooms = c.fetchall()
+    ```
+  </Tab>
+</Tabs>
+
+## Sending Messages
+
+Participate in room conversations with real-time messaging.
+
+<Card title="Message Flow" icon="paper-plane">
+  1. Compose your message (text content)
+  2. System verifies you're a room member
+  3. Message is stored in memory with timestamp
+  4. All room members can see the message instantly
+  5. Messages expire after the configured lifespan
+</Card>
+
+```python app/routes/chat.py:126-167
+@chat_bp.route('/api/send_room_message', methods=['POST'])
+def send_room_message():
+    data = request.get_json()
+    token = request.headers.get('Authorization')
+    room_id = data.get('room_id')
+    message = data.get('message', '').strip()
+
+    # Verify user is in the room
+    c.execute('SELECT id FROM room_members WHERE room_id=? AND username=?', (room_id, user[0]))
+    if not c.fetchone():
+        return jsonify({'error': 'you are not in this room'}), 403
+
+    # Create message with timestamp
+    message_data = {
+        'username': user[0],
+        'message': message,
+        'created_at': time.time(),
+        'room_id': room_id
+    }
+
+    # Add to message queue
+    messages.append(message_data)
+    
+    # Clean old messages (keep only recent ones)
+    now = time.time()
+    messages[:] = [m for m in messages if now - m['created_at'] < MESSAGE_LIFESPAN]
+    if len(messages) > MAX_MESSAGES:
+        messages.pop(0)
+```
+
+### Message Storage Configuration
+
+```python app/config.py:4-7
+DB_FILE = "db.sqlite"
+MAX_MESSAGES = 100          # Maximum messages in memory
+MESSAGE_LIFESPAN = 60 * 30 * 30  # 54,000 seconds (~15 hours)
+MESSAGES_FILE = "messages.txt"    # Persistent storage backup
+```
+
+<Note>
+  Messages are stored in memory for performance and automatically expire after 15 hours. The system maintains a maximum of 100 messages at a time.
+</Note>
+
+## Retrieving Messages
+
+View the message history for any room you're a member of.
+
+```python app/routes/chat.py:169-193
+@chat_bp.route('/api/get_room_messages', methods=['GET'])
+def get_room_messages():
+    token = request.headers.get('Authorization')
+    room_id = request.args.get('room_id')
+
+    # Verify user is in the room
+    c.execute('SELECT id FROM room_members WHERE room_id=? AND username=?', (room_id, user[0]))
+    if not c.fetchone():
+        return jsonify({'error': 'you are not in this room'}), 403
+
+    # Filter messages for this room
+    filtered = [m for m in messages if str(m.get('room_id')) == str(room_id)]
+    return jsonify({'messages': filtered}), 200
+```
+
+## Room Members
+
+View who's in a room and manage your room memberships.
+
+<CardGroup cols={2}>
+  <Card title="View Members" icon="users">
+    See all current members of any room you've joined
+    
+    ```python app/routes/chat.py:227-250
+    @chat_bp.route('/api/room_members/<int:room_id>', methods=['GET'])
+    def get_room_members(room_id):
+        c.execute('SELECT username FROM room_members WHERE room_id=?', (room_id,))
+        members = c.fetchall()
+        members_list = [m[0] for m in members]
+        return jsonify({'members': members_list}), 200
+    ```
+  </Card>
+  
+  <Card title="Auto-Join on Create" icon="user-plus">
+    Room creators are automatically added as the first member when the room is created
+  </Card>
+</CardGroup>
+
+## Database Schema
+
+```sql app/db.py:89-103
+CREATE TABLE IF NOT EXISTS rooms (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  name TEXT UNIQUE NOT NULL,
+  is_private INTEGER DEFAULT 0,
+  password_hash TEXT,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+)
+
+CREATE TABLE IF NOT EXISTS room_members (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  room_id INTEGER NOT NULL,
+  username TEXT NOT NULL,
+  joined_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY(room_id) REFERENCES rooms(id),
+  FOREIGN KEY(username) REFERENCES users(username)
+)
+```
+
+## Real-Time Features
+
+<AccordionGroup>
+  <Accordion title="Server Keep-Alive">
+    The chat system includes automatic server ping to maintain connections:
+    
+    ```python app/routes/chat.py:128-129
+    ping_thread = threading.Thread(target=ping_server, args=(60,), daemon=True)
+    ping_thread.start()
+    ```
+  </Accordion>
+  
+  <Accordion title="Message Persistence">
+    Messages are periodically saved to disk as a backup:
+    
+    ```python
+    save_messages(messages)  # Writes to MESSAGES_FILE
+    ```
+  </Accordion>
+  
+  <Accordion title="Automatic Cleanup">
+    Old messages are automatically removed to maintain performance:
+    - Messages older than `MESSAGE_LIFESPAN` are deleted
+    - Only the most recent `MAX_MESSAGES` are kept
+  </Accordion>
+</AccordionGroup>
+
+## API Endpoints
+
+<CardGroup cols={2}>
+  <Card title="Create Room" icon="plus" href="/api/rooms/create-room">
+    Start a new chat room
+  </Card>
+  
+  <Card title="Join Room" icon="door-open" href="/api/rooms/join-room">
+    Enter an existing room
+  </Card>
+  
+  <Card title="List Rooms" icon="list" href="/api/rooms/list-rooms">
+    Browse public rooms
+  </Card>
+  
+  <Card title="Send Message" icon="paper-plane" href="/api/rooms/send-message">
+    Post to room chat
+  </Card>
+  
+  <Card title="Get Messages" icon="comments" href="/api/rooms/get-messages">
+    View room history
+  </Card>
+  
+  <Card title="Room Members" icon="users" href="/api/rooms/members">
+    See who's in a room
+  </Card>
+</CardGroup>

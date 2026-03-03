@@ -1,0 +1,131 @@
+---
+title: "Join Room"
+api: "POST /api/join_room"
+description: "Join an existing chat room"
+---
+
+## Overview
+
+Allows an authenticated user to join an existing chat room by name. For private rooms, the correct password must be provided. The user is added to the room's member list.
+
+## Authentication
+
+Requires a valid authentication token in the Authorization header.
+
+## Request
+
+### Headers
+
+<ParamField header="Authorization" type="string" required>
+  User authentication token
+</ParamField>
+
+### Body Parameters
+
+<ParamField body="name" type="string" required>
+  Name of the room to join. Must match an existing room name exactly.
+</ParamField>
+
+<ParamField body="password" type="string">
+  Password for private rooms. Required if joining a private room.
+</ParamField>
+
+## Response
+
+<ResponseField name="message" type="string">
+  Confirmation message indicating successful join
+</ResponseField>
+
+<ResponseField name="room_id" type="integer">
+  The unique ID of the joined room
+</ResponseField>
+
+<ResponseField name="room_name" type="string">
+  The name of the joined room
+</ResponseField>
+
+## Status Codes
+
+- **200**: Successfully joined the room
+- **400**: Missing room name or token
+- **401**: Unauthorized - invalid or missing token
+- **403**: Password required or wrong password for private room
+- **404**: Room not found
+
+## Error Responses
+
+### Missing Fields
+```json
+{
+  "error": "missing room name or token"
+}
+```
+
+### Unauthorized
+```json
+{
+  "error": "unauthorized"
+}
+```
+
+### Room Not Found
+```json
+{
+  "error": "room not found"
+}
+```
+
+### Password Required
+```json
+{
+  "error": "password required"
+}
+```
+
+### Wrong Password
+```json
+{
+  "error": "wrong password"
+}
+```
+
+## Example
+
+### Join Public Room
+
+```bash
+curl -X POST https://api.mirage.com/api/join_room \
+  -H "Authorization: your-auth-token" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "name": "General Discussion"
+  }'
+```
+
+### Join Private Room
+
+```bash
+curl -X POST https://api.mirage.com/api/join_room \
+  -H "Authorization: your-auth-token" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "name": "Secret Club",
+    "password": "secure-password"
+  }'
+```
+
+### Success Response
+
+```json
+{
+  "message": "john_doe joined room \"General Discussion\"",
+  "room_id": 42,
+  "room_name": "General Discussion"
+}
+```
+
+## Notes
+
+- If a user is already a member of the room, their membership is updated with a new `joined_at` timestamp.
+- Private rooms require the correct password to join.
+- Public rooms can be joined without a password.

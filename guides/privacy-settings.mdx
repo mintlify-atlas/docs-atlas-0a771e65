@@ -1,0 +1,527 @@
+---
+title: "Privacy Features and Settings"
+description: "Control your privacy and manage your profile visibility in Mirage"
+icon: "shield-halved"
+---
+
+## Overview
+
+Mirage provides granular privacy controls for your profile, allowing you to manage visibility, customize your presence, and control who can interact with you.
+
+## User Profile Management
+
+Your user profile contains both public and private information. Understanding what's visible helps you maintain appropriate privacy.
+
+### Public Profile Information
+
+These fields are **always visible** to other users:
+
+- Username
+- Avatar URL
+- Description/Bio
+- Account creation date
+- Custom CSS (applied to your profile page)
+- Background image
+- Profile statistics (followers, following, posts, upvotes, downvotes)
+
+```python
+# From app/routes/users.py:97-111
+user_data = {
+    'username': row[1],
+    'avatar_url': row[3],
+    'description': row[4],
+    'created_at': row[7],
+    'custom_css': row[8],
+    'background_image': row[9],
+    'stats': {
+        'followers': profile_stats[0],
+        'following': profile_stats[1],
+        'posts': profile_stats[2],
+        'upvotes': profile_stats[3],
+        'downvotes': profile_stats[4]
+    }
+}
+```
+
+### Private Information
+
+These fields are **never exposed** via API:
+
+- Email address
+- Password (stored as hashed value)
+- Authentication token
+
+<Warning>
+  Email addresses are unique identifiers but are kept private. Only you can see your email in account settings.
+</Warning>
+
+## Updating Profile Settings
+
+<Steps>
+  <Step title="Prepare your authentication">
+    Include your auth token in the request header.
+
+    ```python
+    headers = {
+        'Authorization': 'your_auth_token',
+        'Content-Type': 'application/json'
+    }
+    ```
+  </Step>
+
+  <Step title="Send update request">
+    Update any combination of profile fields by sending a POST to `/api/user/settings`.
+
+    ```python
+    import requests
+
+    response = requests.post(
+        'https://api.mirage.com/api/user/settings',
+        headers=headers,
+        json={
+            'email': 'newemail@example.com',
+            'avatar_url': 'https://example.com/avatar.png',
+            'description': 'Software engineer and open source enthusiast',
+            'background_image': 'https://example.com/bg.jpg'
+        }
+    )
+    ```
+  </Step>
+
+  <Step title="Handle response">
+    On success, you'll receive confirmation that settings were updated.
+
+    ```json
+    {
+        "message": "settings updated successfully"
+    }
+    ```
+  </Step>
+</Steps>
+
+### Updatable Fields
+
+<Accordion title="Available Profile Fields">
+  | Field | Type | Description | Constraints |
+  |-------|------|-------------|-------------|
+  | `email` | string | Your email address (private) | Must be unique |
+  | `avatar_url` | string | URL to your profile picture | Public |
+  | `description` | string | Profile bio/description | Public |
+  | `password` | string | New password | Stored as hash |
+  | `custom_css` | string | Custom CSS for your profile | Public |
+  | `background_image` | string | Profile background URL | Public |
+</Accordion>
+
+<Note>
+  You can update one or multiple fields in a single request. Only include the fields you want to change.
+</Note>
+
+## Password Security
+
+Passwords are protected with industry-standard hashing.
+
+### Changing Your Password
+
+```python
+response = requests.post(
+    'https://api.mirage.com/api/user/settings',
+    headers=headers,
+    json={
+        'password': 'new_secure_password_123'
+    }
+)
+```
+
+<Accordion title="Password Hashing Implementation">
+  Mirage uses Werkzeug's `generate_password_hash` for secure password storage:
+
+  ```python
+  # From app/routes/users.py:48-50
+  if password:
+      updates.append("password = ?")
+      params.append(generate_password_hash(password))
+  ```
+
+  For room passwords, SHA-256 hashing is used:
+
+  ```python
+  # From app/utils.py:9-10
+  def hash_pw(password: str) -> str:
+      return hashlib.sha256(password.encode('utf-8')).hexdigest()
+  ```
+</Accordion>
+
+<Tip>
+  Use a strong password with a mix of uppercase, lowercase, numbers, and special characters.
+</Tip>
+
+## Profile Customization
+
+Mirage allows extensive profile customization while respecting user privacy.
+
+### Custom CSS
+
+Add personalized styling to your profile page.
+
+```python
+response = requests.post(
+    'https://api.mirage.com/api/user/settings',
+    headers=headers,
+    json={
+        'custom_css': '''
+            .profile-header {
+                background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+                color: white;
+            }
+            .profile-bio {
+                font-family: 'Georgia', serif;
+            }
+        '''
+    }
+)
+```
+
+<Warning>
+  Custom CSS is publicly visible and applied to your profile. Avoid including sensitive information in CSS comments.
+</Warning>
+
+### Background Images
+
+Set a custom background image for your profile.
+
+```python
+response = requests.post(
+    'https://api.mirage.com/api/user/settings',
+    headers=headers,
+    json={
+        'background_image': 'https://images.example.com/my-background.jpg'
+    }
+)
+```
+
+## Room Privacy
+
+### Private Rooms
+
+Create password-protected rooms for private conversations.
+
+```python
+# Create a private room
+response = requests.post(
+    'https://api.mirage.com/api/create_room',
+    headers=headers,
+    json={
+        'room_name': 'private-team-chat',
+        'is_private': 1,
+        'password': 'team_password_123'
+    }
+)
+```
+
+<CardGroup cols={2}>
+  <Card title="Private Room Benefits" icon="lock">
+    - Not listed in public room directory
+    - Password required to join
+    - Only members can see messages
+    - No limit on number of private rooms
+  </Card>
+  
+  <Card title="Public Room Visibility" icon="eye">
+    - Listed in `/api/rooms` endpoint
+    - Anyone can join without password
+    - Messages visible to all members
+    - Limited to 5 total public rooms
+  </Card>
+</CardGroup>
+
+### Room Membership Privacy
+
+Room membership is **semi-private**:
+
+- Room members can see all other members in the room (`/api/room_members/<room_id>`)
+- Non-members cannot see the member list
+- Your list of joined rooms is only visible to you (`/api/user_rooms`)
+
+```python
+# Check who's in a room (must be a member)
+response = requests.get(
+    'https://api.mirage.com/api/room_members/42',
+    headers=headers
+)
+
+# Response
+{
+    "members": ["alice", "bob", "charlie"]
+}
+```
+
+## Social Privacy Controls
+
+### Follow Relationships
+
+Follow relationships are **public** and visible to everyone.
+
+```python
+# Anyone can see who you follow
+response = requests.get(
+    'https://api.mirage.com/api/get_following/username'
+)
+
+# Anyone can see who follows you
+response = requests.get(
+    'https://api.mirage.com/api/get_followers/username'
+)
+```
+
+<Note>
+  Both followers and following lists are public. Consider this when following other users.
+</Note>
+
+### Post Privacy
+
+All posts are **public** by default.
+
+- Posts appear on your profile at `/api/get_posts/<username>`
+- Anyone can view your posts without authentication
+- Post statistics (upvotes, downvotes) are publicly visible
+
+```python
+# From app/routes/posts.py:43-63
+@posts_bp.route('/api/get_posts/<username>',methods=['GET'])
+def get_posts(username):
+    conn = get_db_connection()
+    c = conn.cursor()
+    c.execute(
+        'SELECT id, username, content, created_at, upvotes, downvotes '
+        'FROM posts WHERE username=? ORDER BY created_at DESC',
+        (username,)
+    )
+```
+
+<Accordion title="Post Content Limits">
+  Posts are limited to **512 characters** to encourage concise communication:
+
+  ```python
+  # From app/routes/posts.py:20-21
+  if len(content) > 512:
+      return jsonify({'error':'post content cannot exceed 512 characters'}), 400
+  ```
+</Accordion>
+
+### Voting Privacy
+
+Your individual votes are **private**, but aggregate statistics are public.
+
+- You cannot vote on your own posts (`app/routes/posts.py:97-99`)
+- The system tracks which posts you've voted on to prevent duplicate votes
+- Only the total upvote/downvote counts are publicly visible
+
+```python
+# Your vote is private - stored in post_votes table
+# Only you and the system know how you voted
+response = requests.post(
+    'https://api.mirage.com/api/vote_post',
+    headers=headers,
+    json={
+        'post_id': 123,
+        'vote_type': 'up'  # or 'down'
+    }
+)
+```
+
+## Message Privacy
+
+Messages have automatic privacy through expiration.
+
+### Message Lifespan
+
+Messages are automatically deleted after **30 minutes** (1800 seconds):
+
+```python
+# From app/config.py:6
+MESSAGE_LIFESPAN = 60 * 30 * 30  # 30 minutes in seconds
+
+# Automatic cleanup in app/routes/chat.py:161-162
+now = time.time()
+messages[:] = [m for m in messages if now - m['created_at'] < MESSAGE_LIFESPAN]
+```
+
+<Warning>
+  Messages older than 30 minutes are permanently deleted and cannot be recovered. This is by design for privacy.
+</Warning>
+
+### Message Storage
+
+Messages are stored **in-memory** with a maximum of **100 messages**:
+
+```python
+# From app/config.py:5
+MAX_MESSAGES = 100
+
+# When limit exceeded, oldest messages are removed
+if len(messages) > MAX_MESSAGES:
+    messages.pop(0)
+```
+
+<Tip>
+  The ephemeral nature of messages enhances privacy - no long-term message history is maintained.
+</Tip>
+
+## Authentication Token Security
+
+Your authentication token is your key to accessing Mirage. Keep it secure.
+
+### Token Best Practices
+
+<CardGroup cols={2}>
+  <Card title="Never Share Tokens" icon="ban">
+    Tokens grant full access to your account. Never share them in code, logs, or with other users.
+  </Card>
+  
+  <Card title="Store Securely" icon="vault">
+    Store tokens in environment variables or secure credential managers, never in source code.
+  </Card>
+  
+  <Card title="Rotate Regularly" icon="rotate">
+    Log out and log back in periodically to get a new token if your app supports it.
+  </Card>
+  
+  <Card title="Monitor Usage" icon="chart-line">
+    Watch for unexpected API calls that might indicate token compromise.
+  </Card>
+</CardGroup>
+
+### Token Validation
+
+Every protected endpoint validates your token:
+
+```python
+# From app/routes/users.py:26-31
+c.execute('SELECT username FROM users WHERE token=?', (token,))
+user = c.fetchone()
+if not user:
+    conn.close()
+    return jsonify({'error': 'unauthorized'}), 401
+```
+
+## Email Privacy
+
+Email addresses are strictly private and never exposed publicly.
+
+### Email Uniqueness
+
+Emails must be unique across all users:
+
+```python
+# From app/routes/users.py:68-70
+except sqlite3.IntegrityError:
+    conn.close()
+    return jsonify({'error': 'email already taken'}), 400
+```
+
+<Note>
+  If you try to change your email to one already in use, you'll receive an error. This prevents email conflicts.
+</Note>
+
+### Email Use Cases
+
+Your email is used for:
+
+- Account identification (internal)
+- Password resets (if implemented)
+- Account recovery (if implemented)
+
+## Database Privacy
+
+Understanding the database schema helps you understand privacy boundaries.
+
+<Accordion title="User Table Schema">
+  ```sql
+  -- From app/db.py:77-88
+  CREATE TABLE users(
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      username TEXT UNIQUE NOT NULL,
+      email TEXT UNIQUE NOT NULL,        -- Private
+      avatar_url TEXT,                    -- Public
+      description TEXT,                   -- Public
+      password TEXT NOT NULL,             -- Private (hashed)
+      token TEXT,                          -- Private
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,  -- Public
+      custom_css TEXT,                    -- Public
+      background_image TEXT               -- Public
+  )
+  ```
+</Accordion>
+
+## Content Moderation and Safety
+
+Mirage implements HTML sanitization for user-generated content.
+
+### Safe Markdown Rendering
+
+User content is sanitized to prevent XSS attacks:
+
+```python
+# From app/utils.py:12-16
+def safe_markdown(text):
+    html = markdown.markdown(text)
+    cleaner = Cleaner(tags=ALLOWED_TAGS, attributes=ALLOWED_ATTRIBUTES)
+    return cleaner.clean(html)
+```
+
+### Allowed HTML Tags
+
+Only specific HTML tags are permitted (`app/config.py:12-16`):
+
+```python
+ALLOWED_TAGS = [
+    'a', 'abbr', 'acronym', 'b', 'blockquote', 'code', 'em', 
+    'i', 'li', 'ol', 'strong', 'ul', 'p', 'br', 'img',
+    'h1', 'h2', 'h3', 'h4', 'pre'
+]
+
+ALLOWED_ATTRIBUTES = {
+    'a': ['href', 'title'],
+    'img': ['src', 'alt', 'title']
+}
+```
+
+<Tip>
+  This prevents malicious scripts from being injected into messages and posts.
+</Tip>
+
+## Privacy Best Practices
+
+<AccordionGroup>
+  <Accordion title="Minimize Personal Information">
+    Only include information in your profile that you're comfortable sharing publicly. Remember that usernames, avatars, and descriptions are always public.
+  </Accordion>
+
+  <Accordion title="Use Strong Passwords">
+    Both for your account and private rooms. Passwords are your first line of defense.
+  </Accordion>
+
+  <Accordion title="Be Mindful of Public Posts">
+    All posts are public and visible on your profile. Don't post sensitive or private information.
+  </Accordion>
+
+  <Accordion title="Leverage Private Rooms">
+    For sensitive discussions, always use private, password-protected rooms rather than public ones.
+  </Accordion>
+
+  <Accordion title="Regular Security Checks">
+    Periodically review your profile settings, room memberships, and follow relationships to ensure everything is as you expect.
+  </Accordion>
+</AccordionGroup>
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Creating Rooms" icon="comments" href="/guides/creating-rooms">
+    Learn about private vs public room options
+  </Card>
+  
+  <Card title="Content Moderation" icon="shield-check" href="/guides/content-moderation">
+    Understand content filtering and safety features
+  </Card>
+</CardGroup>

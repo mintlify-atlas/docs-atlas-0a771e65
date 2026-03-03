@@ -1,0 +1,184 @@
+---
+title: Welcome to Mirage
+description: A modern social platform for authentic connections and real-time conversations
+---
+
+<img
+  className="block dark:hidden"
+  src="/images/hero-light.svg"
+  alt="Mirage Hero Light"
+/>
+<img
+  className="hidden dark:block"
+  src="/images/hero-dark.svg"
+  alt="Mirage Hero Dark"
+/>
+
+## What is Mirage?
+
+Mirage is a dynamic social platform that combines the best of social networking and real-time communication. Share your thoughts through posts, connect with like-minded people, and engage in meaningful conversations through both public and private chat rooms.
+
+<CardGroup cols={2}>
+  <Card
+    title="Quickstart"
+    icon="rocket"
+    href="/quickstart"
+  >
+    Create your account and start your first conversation in minutes
+  </Card>
+  <Card
+    title="Installation"
+    icon="download"
+    href="/installation"
+  >
+    Set up Mirage locally or deploy to production
+  </Card>
+  <Card
+    title="API Reference"
+    icon="code"
+    href="/api/auth/register"
+  >
+    Complete REST API documentation for developers
+  </Card>
+  <Card
+    title="GitHub"
+    icon="github"
+    href="https://github.com/korrykatti/mirage"
+  >
+    View source code and contribute on GitHub
+  </Card>
+</CardGroup>
+
+## Core Features
+
+<CardGroup cols={3}>
+  <Card title="Social Posts" icon="pen-to-square">
+    Share thoughts up to 512 characters with voting and threaded replies
+  </Card>
+  <Card title="Chat Rooms" icon="comments">
+    Create public or private rooms for group conversations
+  </Card>
+  <Card title="Direct Messages" icon="envelope">
+    Send private messages directly to any user
+  </Card>
+  <Card title="Follow System" icon="user-plus">
+    Build your network by following users you find interesting
+  </Card>
+  <Card title="For You Page" icon="star">
+    Personalized feed with trending topics and content from followed users
+  </Card>
+  <Card title="File Sharing" icon="file-arrow-up">
+    Share files up to 24MB in chat rooms
+  </Card>
+</CardGroup>
+
+## Platform Highlights
+
+### Personalized Discovery
+
+The **For You Page (FYP)** uses an intelligent algorithm that blends:
+- **40%** recent posts from people you follow
+- **40%** fresh content from the global community  
+- **20%** archive posts to help you discover hidden gems
+
+With trending hashtags calculated in real-time, you'll always know what's capturing the community's attention.
+
+### Flexible Communication
+
+<AccordionGroup>
+  <Accordion title="Public Rooms">
+    Join any of the platform's public chat rooms (max 5) to connect with the broader community. Perfect for topic-based discussions, events, or casual conversations.
+  </Accordion>
+  
+  <Accordion title="Private Rooms">
+    Create password-protected rooms for intimate group conversations. Ideal for teams, friend groups, or exclusive communities.
+  </Accordion>
+  
+  <Accordion title="Direct Messaging">
+    Send one-on-one messages that appear in your recipient's inbox. All messages persist until manually deleted.
+  </Accordion>
+</AccordionGroup>
+
+### Smart Content Management
+
+<Note>
+  Room messages are automatically cleaned up after 30 minutes, keeping conversations fresh and relevant. Only the most recent 100 messages are stored at any time.
+</Note>
+
+### Rich User Profiles
+
+Every user profile displays comprehensive stats:
+- Follower and following counts
+- Total posts (including replies)
+- Cumulative upvotes and downvotes
+- Custom avatars and descriptions (up to 500 words)
+- Personalized CSS and background images
+
+## Authentication & Security
+
+Mirage uses token-based authentication with secure password hashing:
+
+```json
+{
+  "token": "uuid-v4-token",
+  "username": "your_username"
+}
+```
+
+All protected endpoints require an `Authorization` header containing your unique session token.
+
+<Warning>
+  Tokens are invalidated on logout. Keep your token secure and never share it publicly.
+</Warning>
+
+## Content Limits
+
+| Content Type | Limit |
+|-------------|-------|
+| Post/Reply Content | 512 characters |
+| User Description | 500 words |
+| File Uploads | 24 MB |
+| Public Rooms | 5 total |
+| Room Messages | 100 max, 30-minute expiry |
+
+## Getting Started
+
+<Steps>
+  <Step title="Create Your Account">
+    Sign up with a username, email, and password. Optionally add an avatar URL and description.
+  </Step>
+  
+  <Step title="Explore the For You Page">
+    Discover trending content and find users to follow.
+  </Step>
+  
+  <Step title="Join or Create a Room">
+    Browse public rooms or create your own private space.
+  </Step>
+  
+  <Step title="Start Posting">
+    Share your first post and engage with the community through votes and replies.
+  </Step>
+</Steps>
+
+<Card title="Ready to get started?" icon="circle-play" href="/quickstart">
+  Follow our quickstart guide to create your account and post your first message
+</Card>
+
+## Community Standards
+
+- **Be Authentic**: Your voice matters. Share genuine thoughts and experiences.
+- **Vote Fairly**: You can't vote on your own posts, ensuring honest engagement.
+- **Respect Limits**: Content restrictions keep conversations focused and meaningful.
+- **Engage Thoughtfully**: Replies and direct messages help build real connections.
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Quickstart Guide" icon="bolt" href="/quickstart">
+    Create your account and send your first message
+  </Card>
+  <Card title="Installation Guide" icon="server" href="/installation">
+    Deploy Mirage for your community
+  </Card>
+</CardGroup>

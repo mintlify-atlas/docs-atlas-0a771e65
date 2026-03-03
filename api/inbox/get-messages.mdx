@@ -1,0 +1,103 @@
+---
+title: "Get Messages"
+api: "GET /api/inbox"
+description: "Retrieve all inbox messages for the authenticated user"
+---
+
+Retrieves all direct messages where the authenticated user is either the sender or recipient.
+
+## Request
+
+### Headers
+
+<ParamField header="Authorization" type="string" required>
+  User authentication token
+</ParamField>
+
+## Response
+
+<ResponseField name="messages" type="array">
+  Array of message objects sorted by creation date (newest first)
+  
+  <Expandable title="Message Object">
+    <ResponseField name="id" type="integer">
+      Unique message identifier
+    </ResponseField>
+    
+    <ResponseField name="sender" type="string">
+      Username of the message sender
+    </ResponseField>
+    
+    <ResponseField name="recipient" type="string">
+      Username of the message recipient
+    </ResponseField>
+    
+    <ResponseField name="message" type="string">
+      Message content
+    </ResponseField>
+    
+    <ResponseField name="created_at" type="string">
+      Timestamp when the message was created
+    </ResponseField>
+    
+    <ResponseField name="avatar_url" type="string">
+      Avatar URL of the sender. Defaults to placeholder image if not set
+    </ResponseField>
+  </Expandable>
+</ResponseField>
+
+### Success Response
+
+```json
+{
+  "messages": [
+    {
+      "id": 1,
+      "sender": "jane_smith",
+      "recipient": "john_doe",
+      "message": "Hello, how are you?",
+      "created_at": "2026-03-03T10:30:00Z",
+      "avatar_url": "https://example.com/avatars/jane.jpg"
+    },
+    {
+      "id": 2,
+      "sender": "john_doe",
+      "recipient": "jane_smith",
+      "message": "I'm doing great, thanks!",
+      "created_at": "2026-03-03T10:25:00Z",
+      "avatar_url": "https://i.pinimg.com/736x/20/da/fa/20dafa83d38f2277472e132bf1f21c22.jpg"
+    }
+  ]
+}
+```
+
+## Status Codes
+
+<ResponseField name="200" type="Success">
+  Messages retrieved successfully
+</ResponseField>
+
+<ResponseField name="401" type="Unauthorized">
+  Invalid or missing authentication token
+  
+  ```json
+  {
+    "error": "invalid token , please re-login"
+  }
+  ```
+  
+  or
+  
+  ```json
+  {
+    "error": "unauthorized"
+  }
+  ```
+</ResponseField>
+
+## Example
+
+```bash
+curl -X GET https://api.example.com/api/inbox \
+  -H "Authorization: your-auth-token"
+```

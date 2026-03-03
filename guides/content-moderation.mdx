@@ -1,0 +1,639 @@
+---
+title: "Content Moderation Features"
+description: "Understanding Mirage's built-in content moderation, HTML sanitization, and safety features"
+icon: "shield-check"
+---
+
+## Overview
+
+Mirage implements several content moderation features to ensure a safe and secure platform. These include HTML sanitization, markdown rendering safeguards, character limits, and voting mechanisms.
+
+<Note>
+  All user-generated content is automatically sanitized to prevent XSS attacks and malicious code injection.
+</Note>
+
+## HTML Sanitization
+
+Mirage uses the Bleach library to sanitize user-generated HTML content, preventing security vulnerabilities.
+
+### Safe Markdown Rendering
+
+User content is processed through a sanitization pipeline:
+
+```python
+# From app/utils.py:12-16
+def safe_markdown(text):
+    """Convert markdown to sanitized HTML"""
+    html = markdown.markdown(text)
+    cleaner = Cleaner(tags=ALLOWED_TAGS, attributes=ALLOWED_ATTRIBUTES)
+    return cleaner.clean(html)
+```
+
+<Steps>
+  <Step title="Markdown conversion">
+    Raw text is converted to HTML using the Python markdown library.
+  </Step>
+
+  <Step title="HTML sanitization">
+    The resulting HTML is cleaned to remove any dangerous tags or attributes.
+  </Step>
+
+  <Step title="Safe output">
+    Only whitelisted tags and attributes are allowed in the final output.
+  </Step>
+</Steps>
+
+### Allowed HTML Tags
+
+Only specific HTML tags are permitted in user content (`app/config.py:12-16`):
+
+```python
+ALLOWED_TAGS = [
+    'a', 'abbr', 'acronym', 'b', 'blockquote', 'code', 'em', 
+    'i', 'li', 'ol', 'strong', 'ul', 'p', 'br', 'img',
+    'h1', 'h2', 'h3', 'h4', 'pre'
+]
+```
+
+<Accordion title="Tag Descriptions">
+  | Tag | Purpose | Security Risk |
+  |-----|---------|---------------|
+  | `a` | Links | Controlled via href attribute |
+  | `abbr`, `acronym` | Abbreviations | Safe |
+  | `b`, `strong`, `em`, `i` | Text formatting | Safe |
+  | `blockquote` | Quotations | Safe |
+  | `code`, `pre` | Code blocks | Safe |
+  | `ul`, `ol`, `li` | Lists | Safe |
+  | `p`, `br` | Paragraphs and breaks | Safe |
+  | `h1`-`h4` | Headers | Safe |
+  | `img` | Images | Controlled via src attribute |
+</Accordion>
+
+### Allowed HTML Attributes
+
+Even allowed tags have restricted attributes:
+
+```python
+ALLOWED_ATTRIBUTES = {
+    'a': ['href', 'title'],
+    'img': ['src', 'alt', 'title']
+}
+```
+
+<Warning>
+  **Dangerous attributes are blocked**, including:
+  - `onclick`, `onload`, `onerror` (JavaScript event handlers)
+  - `style` with `javascript:` URLs
+  - Any data attributes that could store malicious code
+</Warning>
+
+### What Gets Blocked
+
+The sanitizer automatically removes:
+
+<CardGroup cols={2}>
+  <Card title="Script Tags" icon="code">
+    ```html
+    <script>alert('XSS')</script>
+    ```
+    Completely removed from output
+  </Card>
+  
+  <Card title="Event Handlers" icon="bolt">
+    ```html
+    <a onclick="malicious()">Click</a>
+    ```
+    `onclick` attribute stripped
+  </Card>
+  
+  <Card title="Iframe Embeds" icon="window">
+    ```html
+    <iframe src="evil.com"></iframe>
+    ```
+    Entire tag removed
+  </Card>
+  
+  <Card title="Form Elements" icon="input-text">
+    ```html
+    <form><input type="text"></form>
+    ```
+    Forms and inputs blocked
+  </Card>
+</CardGroup>
+
+## Content Length Limits
+
+Mirage enforces character limits on user-generated content to maintain quality and prevent abuse.
+
+### Post Character Limit
+
+Posts are limited to **512 characters**:
+
+```python
+# From app/routes/posts.py:20-21
+if len(content) > 512:
+    return jsonify({'error':'post content cannot exceed 512 characters'}), 400
+```
+
+<Tip>
+  The 512-character limit encourages concise, focused communication similar to microblogging platforms.
+</Tip>
+
+### Reply Character Limit
+
+Replies to posts also have a **512-character limit**:
+
+```python
+# From app/routes/posts.py:152-153
+if len(content) > 512:
+    return jsonify({'error': 'reply content cannot exceed 512 characters'}), 400
+```
+
+### Message Length
+
+Room messages don't have an explicit character limit in the code, but best practices suggest keeping them reasonable.
+
+<Note>
+  While messages don't have a hard limit, extremely long messages may cause performance issues or be truncated by clients.
+</Note>
+
+## Voting System
+
+The voting system provides community-driven content moderation.
+
+### Upvotes and Downvotes
+
+Users can vote on posts to indicate quality:
+
+```python
+# Vote on a post
+response = requests.post(
+    'https://api.mirage.com/api/vote_post',
+    headers={'Authorization': 'your_token'},
+    json={
+        'post_id': 123,
+        'vote_type': 'up'  # or 'down'
+    }
+)
+```
+
+### Voting Rules
+
+<AccordionGroup>
+  <Accordion title="Cannot vote on own posts">
+    Users cannot vote on their own content:
+
+    ```python
+    # From app/routes/posts.py:97-99
+    if post_author == username:
+        conn.close()
+        return jsonify({'error':'cannot vote on your own post'}), 403
+    ```
+  </Accordion>
+
+  <Accordion title="One vote per user per post">
+    Each user can only vote once on a post. Changing your vote is allowed:
+
+    ```python
+    # From app/routes/posts.py:102-121
+    c.execute('SELECT vote_type FROM post_votes WHERE post_id=? AND username=?', 
+              (post_id, username))
+    existing_vote = c.fetchone()
+    
+    if existing_vote:
+        if existing_vote[0] == vote_type:
+            return jsonify({'error':'already voted this way'}), 400
+        else:
+            # Reverse previous vote and apply new one
+    ```
+  </Accordion>
+
+  <Accordion title="Vote counts are public">
+    Total upvotes and downvotes are visible to everyone, but individual votes are private.
+  </Accordion>
+</AccordionGroup>
+
+### Vote Tracking
+
+Votes are stored in the `post_votes` table:
+
+```sql
+-- From app/db.py:132-141
+CREATE TABLE post_votes (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    post_id INTEGER NOT NULL,
+    username TEXT NOT NULL,
+    vote_type TEXT NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY(post_id) REFERENCES posts(id),
+    FOREIGN KEY(username) REFERENCES users(username),
+    UNIQUE(post_id, username)
+)
+```
+
+<Note>
+  The `UNIQUE(post_id, username)` constraint ensures one vote per user per post at the database level.
+</Note>
+
+## Message Lifecycle Management
+
+Automatic message expiration provides a form of content moderation by limiting message retention.
+
+### Automatic Message Expiration
+
+Messages expire after **30 minutes** (1800 seconds):
+
+```python
+# From app/config.py:6
+MESSAGE_LIFESPAN = 60 * 30 * 30  # 30 minutes
+
+# Cleanup in app/routes/chat.py:161-162
+now = time.time()
+messages[:] = [m for m in messages if now - m['created_at'] < MESSAGE_LIFESPAN]
+```
+
+### Message Count Limit
+
+Only the most recent **100 messages** are retained:
+
+```python
+# From app/config.py:5
+MAX_MESSAGES = 100
+
+# Cleanup in app/routes/chat.py:163-164
+if len(messages) > MAX_MESSAGES:
+    messages.pop(0)
+```
+
+<Tip>
+  **Benefits of ephemeral messages:**
+  - Reduces risk of long-term harassment
+  - Encourages real-time engagement
+  - Minimizes storage of potentially problematic content
+  - Provides natural content rotation
+</Tip>
+
+## User Profile Moderation
+
+### Custom CSS Sanitization
+
+Users can add custom CSS to profiles, but this could be a security risk if not handled properly.
+
+```python
+# Custom CSS is stored but should be sanitized client-side
+response = requests.post(
+    'https://api.mirage.com/api/user/settings',
+    headers=headers,
+    json={
+        'custom_css': '.profile { background: blue; }'
+    }
+)
+```
+
+<Warning>
+  **Custom CSS security concern**: The current implementation stores custom CSS without server-side validation. Client applications should:
+  - Sanitize CSS before rendering
+  - Use CSP (Content Security Policy) headers
+  - Restrict CSS properties that could be abused
+</Warning>
+
+### Profile Content Limits
+
+<Accordion title="Profile Field Constraints">
+  | Field | Type | Constraints | Moderation |
+  |-------|------|-------------|------------|
+  | Username | string | Unique, required | Set at registration |
+  | Email | string | Unique, required, private | Format validation recommended |
+  | Description | text | Optional | No length limit (should be added) |
+  | Avatar URL | string | URL format | Should validate URL format |
+  | Custom CSS | text | Optional | **Security risk - needs sanitization** |
+  | Background Image | string | URL format | Should validate URL format |
+</Accordion>
+
+## Authentication and Authorization
+
+Proper authentication is the foundation of content moderation.
+
+### Token Validation
+
+Every protected endpoint validates the authentication token:
+
+```python
+# From app/routes/chat.py:27-32
+c.execute('SELECT username FROM users WHERE token=?', (token,))
+user = c.fetchone()
+if not user:
+    conn.close()
+    return jsonify({'error': "unauthorized"}), 401
+```
+
+### Room Membership Checks
+
+Users must be room members to interact with room content:
+
+```python
+# From app/routes/chat.py:146-149
+c.execute('SELECT id FROM room_members WHERE room_id=? AND username=?', 
+          (room_id, user[0]))
+if not c.fetchone():
+    return jsonify({'error': 'you are not in this room'}), 403
+```
+
+<CardGroup cols={2}>
+  <Card title="Authentication (401)" icon="key">
+    Verifies **who you are** via token validation
+  </Card>
+  
+  <Card title="Authorization (403)" icon="shield">
+    Verifies **what you can do** via permission checks
+  </Card>
+</CardGroup>
+
+## File Upload Moderation
+
+File uploads have specific restrictions for safety.
+
+### File Size Limit
+
+Files are limited to **24MB** to prevent resource abuse:
+
+```python
+# From app/routes/upload.py:31-32
+if file.content_length > 24 * 1024 * 1024:
+    return jsonify({'error': 'File size exceeds the 24MB limit'}), 400
+```
+
+### File Type Handling
+
+Currently, Mirage accepts all file types (`Content-Type: application/octet-stream`).
+
+<Warning>
+  **Security recommendation**: Implement file type validation to restrict uploads to specific categories (documents, images, etc.) and prevent executable files.
+</Warning>
+
+### Recommended File Type Restrictions
+
+```python
+# Suggested implementation (not in current codebase)
+ALLOWED_EXTENSIONS = {
+    'images': ['png', 'jpg', 'jpeg', 'gif', 'webp', 'svg'],
+    'documents': ['pdf', 'doc', 'docx', 'txt', 'md'],
+    'archives': ['zip', 'tar', 'gz']
+}
+
+BLOCKED_EXTENSIONS = ['exe', 'dll', 'bat', 'sh', 'cmd', 'ps1']
+
+def allowed_file(filename):
+    return '.' in filename and \
+           filename.rsplit('.', 1)[1].lower() not in BLOCKED_EXTENSIONS
+```
+
+## Database-Level Constraints
+
+Several constraints are enforced at the database level for data integrity.
+
+### Unique Constraints
+
+```sql
+-- Usernames must be unique
+CREATE TABLE users(
+    username TEXT UNIQUE NOT NULL,
+    email TEXT UNIQUE NOT NULL
+)
+
+-- Room names must be unique
+CREATE TABLE rooms (
+    name TEXT UNIQUE NOT NULL
+)
+
+-- One vote per user per post
+CREATE TABLE post_votes (
+    UNIQUE(post_id, username)
+)
+
+-- No duplicate follow relationships
+CREATE TABLE following (
+    UNIQUE(follower, following)
+)
+```
+
+### Foreign Key Constraints
+
+Foreign keys maintain referential integrity:
+
+```sql
+-- Room members must reference valid rooms and users
+CREATE TABLE room_members (
+    room_id INTEGER NOT NULL,
+    username TEXT NOT NULL,
+    FOREIGN KEY(room_id) REFERENCES rooms(id),
+    FOREIGN KEY(username) REFERENCES users(username)
+)
+```
+
+<Note>
+  Foreign key constraints prevent orphaned data and maintain consistency across tables.
+</Note>
+
+## Rate Limiting Considerations
+
+The current codebase doesn't implement rate limiting, which is a significant gap in content moderation.
+
+<Warning>
+  **Missing feature**: Rate limiting should be implemented to prevent:
+  - Spam posting
+  - Brute force attacks
+  - Resource exhaustion
+  - API abuse
+</Warning>
+
+### Recommended Rate Limits
+
+<Accordion title="Suggested Rate Limit Implementation">
+  ```python
+  # Suggested implementation (not in current codebase)
+  from flask_limiter import Limiter
+  from flask_limiter.util import get_remote_address
+
+  limiter = Limiter(
+      app,
+      key_func=get_remote_address,
+      default_limits=["200 per day", "50 per hour"]
+  )
+
+  @posts_bp.route('/api/create_post', methods=['POST'])
+  @limiter.limit("10 per minute")
+  def create_post():
+      # Post creation logic
+      pass
+
+  @chat_bp.route('/api/send_room_message', methods=['POST'])
+  @limiter.limit("30 per minute")
+  def send_room_message():
+      # Message sending logic
+      pass
+  ```
+</Accordion>
+
+## Content Moderation Best Practices
+
+<Steps>
+  <Step title="Input validation">
+    Validate all user input at the application layer before processing.
+    
+    ```python
+    # Always strip and validate
+    room_name = data.get('room_name', '').strip()
+    if not room_name:
+        return jsonify({'error': 'invalid fields'}), 400
+    ```
+  </Step>
+
+  <Step title="Output sanitization">
+    Sanitize content before rendering to prevent XSS attacks.
+    
+    ```python
+    safe_content = safe_markdown(user_content)
+    ```
+  </Step>
+
+  <Step title="Authentication checks">
+    Always validate authentication tokens before processing requests.
+    
+    ```python
+    token = request.headers.get('Authorization')
+    if not token:
+        return jsonify({'error': 'unauthorized'}), 401
+    ```
+  </Step>
+
+  <Step title="Authorization checks">
+    Verify user permissions for the requested action.
+    
+    ```python
+    if not user_is_room_member(room_id, username):
+        return jsonify({'error': 'forbidden'}), 403
+    ```
+  </Step>
+</Steps>
+
+## Monitoring and Logging
+
+The server includes basic logging for debugging:
+
+```python
+# From app/routes/upload.py:35-42
+print(f"Attempting to upload file: {file.filename} to room {room_id}")
+
+try:
+    file_url = file_uploader(file)
+    print(f"File uploaded successfully: {file_url}")
+except Exception as e:
+    print(f"File upload failed: {str(e)}")
+```
+
+<Tip>
+  **Production recommendation**: Replace print statements with a proper logging framework (e.g., Python's `logging` module) to track:
+  - Failed authentication attempts
+  - Content creation rates
+  - File upload activities
+  - Error patterns
+</Tip>
+
+## Security Headers
+
+The codebase uses Flask-CORS for cross-origin requests:
+
+```python
+# From app/routes/upload.py:13
+@upload_bp.route('/api/upload_file', methods=['POST'])
+@cross_origin()
+def upload_file():
+```
+
+<Accordion title="Recommended Security Headers">
+  ```python
+  # Should be added to the Flask app
+  @app.after_request
+  def set_security_headers(response):
+      response.headers['X-Content-Type-Options'] = 'nosniff'
+      response.headers['X-Frame-Options'] = 'DENY'
+      response.headers['X-XSS-Protection'] = '1; mode=block'
+      response.headers['Strict-Transport-Security'] = 'max-age=31536000; includeSubDomains'
+      response.headers['Content-Security-Policy'] = "default-src 'self'"
+      return response
+  ```
+</Accordion>
+
+## Future Moderation Improvements
+
+<CardGroup cols={2}>
+  <Card title="Rate Limiting" icon="gauge">
+    Implement per-user and per-endpoint rate limits to prevent abuse
+  </Card>
+  
+  <Card title="File Type Validation" icon="file-check">
+    Restrict file uploads to safe file types and scan for malware
+  </Card>
+  
+  <Card title="Content Length Limits" icon="ruler">
+    Add character limits to descriptions, usernames, and other text fields
+  </Card>
+  
+  <Card title="CSS Sanitization" icon="code">
+    Implement server-side CSS validation for custom profile styles
+  </Card>
+  
+  <Card title="Automated Profanity Filter" icon="filter">
+    Add optional profanity filtering for messages and posts
+  </Card>
+  
+  <Card title="Report System" icon="flag">
+    Allow users to report inappropriate content for moderator review
+  </Card>
+  
+  <Card title="Moderation Dashboard" icon="dashboard">
+    Create admin interface for reviewing reported content
+  </Card>
+  
+  <Card title="Ban/Mute System" icon="ban">
+    Implement user and content moderation actions
+  </Card>
+</CardGroup>
+
+## API Moderation Reference
+
+### Protected Endpoints
+
+All these endpoints require valid authentication:
+
+- `POST /api/create_room` - Room creation (with public room limit)
+- `POST /api/join_room` - Room joining (with password check)
+- `POST /api/send_room_message` - Message sending (with membership check)
+- `GET /api/get_room_messages` - Message retrieval (with membership check)
+- `POST /api/upload_file` - File upload (with size and membership checks)
+- `POST /api/create_post` - Post creation (with length limit)
+- `POST /api/vote_post` - Voting (with self-vote prevention)
+- `POST /api/user/settings` - Profile updates (with email uniqueness)
+
+### Moderation Status Codes
+
+| Code | Meaning | Typical Cause |
+|------|---------|---------------|
+| `400` | Bad Request | Invalid input, length exceeded, duplicate data |
+| `401` | Unauthorized | Missing or invalid auth token |
+| `403` | Forbidden | Insufficient permissions, self-voting, not a member |
+| `404` | Not Found | Resource doesn't exist |
+| `500` | Server Error | Database error, external service failure |
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Privacy Settings" icon="shield-halved" href="/guides/privacy-settings">
+    Learn about privacy controls and data protection
+  </Card>
+  
+  <Card title="Creating Rooms" icon="comments" href="/guides/creating-rooms">
+    Understand room creation and management
+  </Card>
+</CardGroup>

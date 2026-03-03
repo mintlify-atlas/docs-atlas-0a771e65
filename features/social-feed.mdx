@@ -1,0 +1,355 @@
+---
+title: 'Social Feed (For You Page)'
+description: 'Personalized content discovery and trending topics on Mirage'
+icon: 'newspaper'
+---
+
+The For You Page (FYP) is Mirage's personalized social feed that combines content from users you follow, global posts, and trending topics to create an engaging discovery experience.
+
+## How the Feed Works
+
+Mirage's algorithm creates a personalized feed by intelligently mixing different types of content.
+
+<Card title="Feed Composition" icon="sparkles">
+  Your For You Page combines three content sources:
+  1. **Recent posts from followed users** (up to 20 posts)
+  2. **Global posts from users you don't follow** (up to 20 posts)
+  3. **Older/random posts for discovery** (up to 100 posts)
+  
+  All combined, shuffled, and limited to 30 posts for optimal browsing.
+</Card>
+
+### Feed Algorithm
+
+```python app/routes/feed.py:11-118
+@feed_bp.route('/api/fyp',methods=['GET'])
+def fyp():
+    token = request.headers.get('Authorization')
+    if not token:
+        return jsonify({'error':'invalid token , please login again'}),401
+    
+    # Authenticate user
+    c.execute('SELECT username FROM users WHERE token=?',(token,))
+    user = c.fetchone()
+    username = user[0]
+    
+    # Get list of followed users
+    c.execute('SELECT following FROM following WHERE follower=?',(username,))
+    followed = c.fetchall()
+    if followed:
+        followed_users = [f[0] for f in followed]
+    else:
+        return jsonify({'message':'no users being followed , yet'}),200
+    
+    # Get recent posts from followed users
+    placeholders = ','.join(['?'] * len(followed_users))
+    query = '''SELECT id, username, content, created_at, upvotes, downvotes 
+               FROM posts 
+               WHERE username IN ({}) 
+               ORDER BY created_at DESC 
+               LIMIT 20'''.format(placeholders)
+    c.execute(query, followed_users)
+    recent_posts = c.fetchall()
+```
+
+<Steps>
+  <Step title="Collect Followed Content">
+    Fetch the 20 most recent posts from users you follow, ordered by creation date
+  </Step>
+  
+  <Step title="Add Global Discovery">
+    Include 20 recent posts from users you don't follow to help you discover new creators
+  </Step>
+  
+  <Step title="Mix in Random Posts">
+    Add up to 100 older posts for serendipitous content discovery
+  </Step>
+  
+  <Step title="Shuffle & Limit">
+    Randomize the combined feed and cap at 30 posts for a fresh experience each time
+  </Step>
+</Steps>
+
+## Content Types
+
+<Tabs>
+  <Tab title="Followed Users">
+    Posts from people you follow get priority in your feed:
+    
+    ```python app/routes/feed.py:36-57
+    recent_posts_data = []
+    for row in recent_posts:
+        post_data = {
+            'id': row[0],
+            'username': row[1],
+            'content': row[2],
+            'created_at': row[3],
+            'upvotes': row[4],
+            'downvotes': row[5]
+        }
+        recent_posts_data.append(post_data)
+    ```
+  </Tab>
+  
+  <Tab title="Global Posts">
+    Discover new creators through posts from users outside your network:
+    
+    ```python app/routes/feed.py:59-75
+    query_global = '''SELECT id, username, content, created_at, upvotes, downvotes 
+                      FROM posts 
+                      WHERE username NOT IN ({}) 
+                      ORDER BY created_at DESC 
+                      LIMIT 20'''.format(placeholders)
+    c.execute(query_global, followed_users)
+    global_posts = c.fetchall()
+    ```
+  </Tab>
+  
+  <Tab title="Random Discovery">
+    Older posts provide variety and help surface evergreen content:
+    
+    ```python app/routes/feed.py:77-92
+    c.execute('''SELECT id, username, content, created_at, upvotes, downvotes 
+                 FROM posts 
+                 ORDER BY created_at ASC 
+                 LIMIT 100''')
+    old_posts = c.fetchall()
+    ```
+  </Tab>
+</Tabs>
+
+## Feed Personalization
+
+<AccordionGroup>
+  <Accordion title="Content Mixing">
+    The algorithm combines all three content sources and shuffles them:
+    
+    ```python app/routes/feed.py:96-101
+    # Combine and shuffle the posts
+    combined_posts = recent_posts_data + global_posts_data + old_posts_data
+    random.shuffle(combined_posts)
+    
+    # Limit to 30 posts
+    combined_posts = combined_posts[:30]
+    ```
+  </Accordion>
+  
+  <Accordion title="Follow-Based Filtering">
+    Your feed is directly influenced by who you follow:
+    - Follow more users = more personalized content
+    - Follow fewer users = more discovery content
+    - No follows = empty feed (encourages network building)
+  </Accordion>
+  
+  <Accordion title="Fresh Content Each Visit">
+    Random shuffling ensures your feed looks different every time you refresh, keeping the experience fresh and engaging.
+  </Accordion>
+</AccordionGroup>
+
+## Trending Topics
+
+Discover what's hot on Mirage with real-time trending hashtags.
+
+<Card title="Trending Algorithm" icon="fire">
+  Mirage analyzes hashtags from recent global posts to identify the top 3 trending topics on the platform.
+</Card>
+
+### Hashtag Extraction
+
+```python app/routes/feed.py:103-118
+# Extract hashtags from recent global posts
+hashtags = []
+for post in global_posts_data:
+    if 'content' in post:
+        found_hashtags = re.findall(r'#(\w+)', post['content'])
+        hashtags.extend(found_hashtags)
+        
+# Get top 3 trending hashtags
+hashtag_counts = Counter(hashtags)
+trending_hashtags = hashtag_counts.most_common(3)
+trending_topics = [f'#{tag}' for tag, count in trending_hashtags]
+
+return jsonify({
+    'posts': combined_posts,
+    'trending_topics': trending_topics
+}), 200
+```
+
+<Steps>
+  <Step title="Scan Global Posts">
+    Analyze all recent global posts for hashtag patterns
+  </Step>
+  
+  <Step title="Extract Hashtags">
+    Use regex `#(\w+)` to find all hashtags in post content
+  </Step>
+  
+  <Step title="Count Occurrences">
+    Use Python's Counter to tally hashtag frequency
+  </Step>
+  
+  <Step title="Surface Top 3">
+    Return the three most commonly used hashtags as trending topics
+  </Step>
+</Steps>
+
+<Info>
+  **Regex Pattern**: The pattern `r'#(\w+)'` matches hashtags starting with # followed by word characters (letters, numbers, underscores).
+</Info>
+
+## Post Interactions
+
+Engage with feed content through various interaction types.
+
+<CardGroup cols={2}>
+  <Card title="Upvotes & Downvotes" icon="thumbs-up">
+    Vote on posts to show support or disagreement. Each post displays vote counts:
+    
+    ```python
+    'upvotes': row[4],
+    'downvotes': row[5]
+    ```
+  </Card>
+  
+  <Card title="Replies" icon="reply">
+    Comment on posts to start conversations. Replies are accessible from the feed.
+  </Card>
+  
+  <Card title="User Profiles" icon="user">
+    Click any username to view their full profile with all posts and stats
+  </Card>
+  
+  <Card title="Follow Users" icon="user-plus">
+    Follow interesting creators directly from their feed posts to see more of their content
+  </Card>
+</CardGroup>
+
+## First-Time User Experience
+
+<Warning>
+  **Empty Feed**: If you're not following anyone yet, your feed will be empty. Start building your network by:
+  - Exploring trending topics
+  - Visiting user profiles
+  - Following interesting creators
+</Warning>
+
+```python app/routes/feed.py:31-33
+if not followed:
+    return jsonify({'message':'no users being followed , yet'}),200
+```
+
+## Post Structure
+
+Each post in the feed includes comprehensive metadata:
+
+<Tabs>
+  <Tab title="Post Data">
+    ```json
+    {
+      "id": 123,
+      "username": "creator_username",
+      "content": "Post text with #hashtags",
+      "created_at": "2026-03-03T12:00:00",
+      "upvotes": 42,
+      "downvotes": 3
+    }
+    ```
+  </Tab>
+  
+  <Tab title="Post Limits">
+    - **Content length**: Maximum 512 characters per post
+    - **Posts per user**: Tracked in user_profile table
+    - **Feed size**: Limited to 30 posts per request
+  </Tab>
+  
+  <Tab title="Post Sorting">
+    Posts are sorted by `created_at` timestamp:
+    - Recent posts: `ORDER BY created_at DESC`
+    - Old posts: `ORDER BY created_at ASC`
+  </Tab>
+</Tabs>
+
+## Feed Response Format
+
+The FYP endpoint returns both posts and trending topics:
+
+```json
+{
+  "posts": [
+    {
+      "id": 1,
+      "username": "alice",
+      "content": "Just joined #Mirage! Loving the vibe here 🌟",
+      "created_at": "2026-03-03T15:30:00",
+      "upvotes": 15,
+      "downvotes": 1
+    },
+    // ... more posts
+  ],
+  "trending_topics": [
+    "#Mirage",
+    "#Welcome",
+    "#NewUser"
+  ]
+}
+```
+
+## Building Your Network
+
+<Steps>
+  <Step title="Start Following">
+    Visit user profiles and follow creators whose content interests you
+  </Step>
+  
+  <Step title="Engage with Content">
+    Upvote posts you like, reply to start conversations, and share your thoughts
+  </Step>
+  
+  <Step title="Create Your Own Posts">
+    Post original content to appear in your followers' feeds
+  </Step>
+  
+  <Step title="Watch Your Feed Grow">
+    As you follow more people, your feed becomes increasingly personalized
+  </Step>
+</Steps>
+
+## Related Features
+
+<CardGroup cols={3}>
+  <Card title="Creating Posts" icon="pen" href="/api/posts/create-post">
+    Learn how to publish your own content
+  </Card>
+  
+  <Card title="Following Users" icon="user-plus" href="/api/users/follow">
+    Build your network by following creators
+  </Card>
+  
+  <Card title="Post Voting" icon="thumbs-up" href="/api/posts/vote">
+    Engage with content through voting
+  </Card>
+</CardGroup>
+
+## Algorithm Benefits
+
+<AccordionGroup>
+  <Accordion title="Personalization">
+    Content from followed users ensures your feed reflects your interests and connections
+  </Accordion>
+  
+  <Accordion title="Discovery">
+    Global posts and random content help you find new creators and diverse perspectives
+  </Accordion>
+  
+  <Accordion title="Variety">
+    Random shuffling and mixed content sources prevent feed staleness
+  </Accordion>
+  
+  <Accordion title="Performance">
+    Smart limits (20/20/100 → shuffle → 30) balance content diversity with load times
+  </Accordion>
+</AccordionGroup>
+
+<Note>
+  The For You Page requires authentication. All feed requests must include a valid session token in the Authorization header.
+</Note>

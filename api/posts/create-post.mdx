@@ -1,0 +1,98 @@
+---
+title: 'Create Post'
+api: 'POST /api/create_post'
+description: 'Create a new post with content up to 512 characters'
+---
+
+## Endpoint
+
+```
+POST /api/create_post
+```
+
+Creates a new post for the authenticated user and increments their post count in their profile.
+
+## Headers
+
+<ParamField header="Authorization" type="string" required>
+  Authentication token for the user
+</ParamField>
+
+## Request Body
+
+<ParamField body="content" type="string" required>
+  The content of the post. Must not be empty and cannot exceed 512 characters.
+</ParamField>
+
+## Response
+
+<ResponseField name="message" type="string">
+  Success message confirming post creation
+</ResponseField>
+
+### Success Response
+
+**Status Code:** `201 Created`
+
+```json
+{
+  "message": "post created"
+}
+```
+
+### Error Responses
+
+**Status Code:** `400 Bad Request`
+
+```json
+{
+  "error": "nothing to post"
+}
+```
+
+Returned when the `content` field is empty or missing.
+
+```json
+{
+  "error": "post content cannot exceed 512 characters"
+}
+```
+
+Returned when the content length exceeds 512 characters.
+
+**Status Code:** `401 Unauthorized`
+
+```json
+{
+  "error": "invalid token , please re-login"
+}
+```
+
+Returned when the Authorization header is missing.
+
+```json
+{
+  "error": "unauthorized"
+}
+```
+
+Returned when the provided token is invalid or not found.
+
+## Example Request
+
+```bash
+curl -X POST https://api.example.com/api/create_post \
+  -H "Authorization: your-auth-token" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "content": "This is my first post!"
+  }'
+```
+
+## Example Response
+
+```json
+{
+  "message": "post created"
+}
+```

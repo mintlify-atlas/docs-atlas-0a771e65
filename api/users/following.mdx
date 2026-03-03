@@ -1,0 +1,70 @@
+---
+title: "Get Following"
+api: "GET /api/get_following/{username}"
+description: "Retrieve users that a user is following"
+---
+
+Retrieves a list of users that the specified user is following, ordered by most recently followed first.
+
+## Path Parameters
+
+<ParamField path="username" type="string" required>
+  The username whose following list to retrieve
+</ParamField>
+
+## Response
+
+<ResponseField name="following" type="array">
+  Array of following objects
+  
+  <ResponseField name="username" type="string">
+    The username being followed
+  </ResponseField>
+  
+  <ResponseField name="avatar_url" type="string">
+    URL to the followed user's avatar image (defaults to "default.png" if not set)
+  </ResponseField>
+</ResponseField>
+
+## Status Codes
+
+<ResponseField name="200" type="Success">
+  Following list retrieved successfully
+</ResponseField>
+
+<ResponseField name="404" type="Error">
+  User not found
+  
+  ```json
+  {
+    "error": "user not found"
+  }
+  ```
+</ResponseField>
+
+## Example Request
+
+```bash
+curl -X GET https://api.example.com/api/get_following/johndoe
+```
+
+## Example Response
+
+```json
+{
+  "following": [
+    {
+      "username": "alice",
+      "avatar_url": "https://example.com/avatars/alice.png"
+    },
+    {
+      "username": "bob",
+      "avatar_url": "default.png"
+    },
+    {
+      "username": "charlie",
+      "avatar_url": "https://example.com/avatars/charlie.png"
+    }
+  ]
+}
+```

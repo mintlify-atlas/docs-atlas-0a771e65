@@ -1,0 +1,105 @@
+---
+title: "Get User Profile"
+api: "GET /api/user/{username}"
+description: "Retrieve a user's public profile information including stats"
+---
+
+Retrieves public profile information for a specified user, including their username, avatar, description, creation date, custom styling, and profile statistics.
+
+## Path Parameters
+
+<ParamField path="username" type="string" required>
+  The username of the user whose profile to retrieve
+</ParamField>
+
+## Response
+
+<ResponseField name="username" type="string">
+  The user's username
+</ResponseField>
+
+<ResponseField name="avatar_url" type="string">
+  URL to the user's avatar image
+</ResponseField>
+
+<ResponseField name="description" type="string">
+  User's profile description/bio
+</ResponseField>
+
+<ResponseField name="created_at" type="string">
+  Timestamp of when the user account was created
+</ResponseField>
+
+<ResponseField name="custom_css" type="string">
+  Custom CSS styling for the user's profile
+</ResponseField>
+
+<ResponseField name="background_image" type="string">
+  URL to the user's profile background image
+</ResponseField>
+
+<ResponseField name="stats" type="object">
+  User profile statistics
+  
+  <ResponseField name="followers" type="integer">
+    Number of followers
+  </ResponseField>
+  
+  <ResponseField name="following" type="integer">
+    Number of users being followed
+  </ResponseField>
+  
+  <ResponseField name="posts" type="integer">
+    Total number of posts
+  </ResponseField>
+  
+  <ResponseField name="upvotes" type="integer">
+    Total upvotes received
+  </ResponseField>
+  
+  <ResponseField name="downvotes" type="integer">
+    Total downvotes received
+  </ResponseField>
+</ResponseField>
+
+## Status Codes
+
+<ResponseField name="200" type="Success">
+  Profile retrieved successfully
+</ResponseField>
+
+<ResponseField name="404" type="Error">
+  User not found
+  
+  ```json
+  {
+    "error": "user not found"
+  }
+  ```
+</ResponseField>
+
+## Example Request
+
+```bash
+curl -X GET https://api.example.com/api/user/johndoe
+```
+
+## Example Response
+
+```json
+{
+  "username": "johndoe",
+  "avatar_url": "https://example.com/avatars/johndoe.png",
+  "description": "Software developer and tech enthusiast",
+  "created_at": "2024-01-15 10:30:00",
+  "custom_css": ".profile { color: blue; }",
+  "background_image": "https://example.com/backgrounds/johndoe.jpg",
+  "stats": {
+    "followers": 150,
+    "following": 75,
+    "posts": 42,
+    "upvotes": 320,
+    "downvotes": 15
+  }
+}
+```

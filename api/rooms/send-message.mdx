@@ -1,0 +1,109 @@
+---
+title: "Send Room Message"
+api: "POST /api/send_room_message"
+description: "Send a message to a chat room"
+---
+
+## Overview
+
+Sends a message to a specific chat room. Only members of the room can send messages. Messages are stored in memory with automatic expiration and size limits.
+
+## Authentication
+
+Requires a valid authentication token in the Authorization header.
+
+## Request
+
+### Headers
+
+<ParamField header="Authorization" type="string" required>
+  User authentication token
+</ParamField>
+
+### Body Parameters
+
+<ParamField body="room_id" type="integer" required>
+  The ID of the room to send the message to
+</ParamField>
+
+<ParamField body="message" type="string" required>
+  The message content. Cannot be empty after trimming whitespace.
+</ParamField>
+
+## Response
+
+<ResponseField name="message" type="string">
+  Confirmation message ("sent")
+</ResponseField>
+
+## Status Codes
+
+- **200**: Message sent successfully
+- **400**: Missing required fields (token, room_id, or message)
+- **401**: Unauthorized - invalid or missing token
+- **403**: User is not a member of the room
+
+## Error Responses
+
+### Missing Fields
+```json
+{
+  "error": "missing fields"
+}
+```
+
+### Unauthorized
+```json
+{
+  "error": "unauthorized"
+}
+```
+
+### Not a Room Member
+```json
+{
+  "error": "you are not in this room"
+}
+```
+
+## Example
+
+```bash
+curl -X POST https://api.mirage.com/api/send_room_message \
+  -H "Authorization: your-auth-token" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "room_id": 42,
+    "message": "Hello everyone!"
+  }'
+```
+
+### Success Response
+
+```json
+{
+  "message": "sent"
+}
+```
+
+## Message Storage Details
+
+### Automatic Expiration
+Messages automatically expire after **54,000 seconds (15 hours)**. Expired messages are removed from the system and cannot be retrieved.
+
+### Maximum Messages
+The system maintains a maximum of **100 messages** across all rooms. When this limit is exceeded, the oldest message is removed.
+
+### Message Structure
+Each stored message includes:
+- `username`: The sender's username
+- `message`: The message content
+- `created_at`: Unix timestamp of when the message was sent
+- `room_id`: The room ID the message belongs to
+
+## Notes
+
+- You must be a member of the room to send messages.
+- Messages are trimmed of leading/trailing whitespace before storage.
+- Empty messages (after trimming) are rejected.
+- The endpoint triggers a server ping operation to maintain connectivity.

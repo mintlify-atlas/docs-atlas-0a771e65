@@ -1,0 +1,170 @@
+---
+title: 'For You Page'
+api: 'GET /api/fyp'
+description: 'Get personalized feed with posts from followed users and trending content'
+---
+
+## Endpoint
+
+```
+GET /api/fyp
+```
+
+Retrieves a personalized "For You Page" feed for the authenticated user. The feed includes:
+- Recent posts from users the authenticated user follows (up to 20)
+- Global posts from users not being followed (up to 20)
+- Older/random posts from the platform (up to 100 oldest posts)
+
+The results are combined, shuffled, and limited to 30 posts. The response also includes trending hashtags extracted from recent global posts.
+
+## Headers
+
+<ParamField header="Authorization" type="string" required>
+  Authentication token for the user
+</ParamField>
+
+## Response
+
+<ResponseField name="posts" type="array">
+  An array of post objects (up to 30 posts)
+  
+  <ResponseField name="id" type="integer">
+    Unique identifier for the post
+  </ResponseField>
+  
+  <ResponseField name="username" type="string">
+    Username of the post author
+  </ResponseField>
+  
+  <ResponseField name="content" type="string">
+    The content of the post
+  </ResponseField>
+  
+  <ResponseField name="created_at" type="string">
+    Timestamp when the post was created
+  </ResponseField>
+  
+  <ResponseField name="upvotes" type="integer">
+    Number of upvotes the post has received
+  </ResponseField>
+  
+  <ResponseField name="downvotes" type="integer">
+    Number of downvotes the post has received
+  </ResponseField>
+</ResponseField>
+
+<ResponseField name="trending_topics" type="array">
+  An array of the top 3 trending hashtags (strings) extracted from recent global posts
+</ResponseField>
+
+### Success Response
+
+**Status Code:** `200 OK`
+
+```json
+{
+  "posts": [
+    {
+      "id": 456,
+      "username": "alice",
+      "content": "Check out this cool feature! #tech #innovation",
+      "created_at": "2026-03-03 14:20:00",
+      "upvotes": 25,
+      "downvotes": 2
+    },
+    {
+      "id": 123,
+      "username": "bob",
+      "content": "Having a great day! #lifestyle",
+      "created_at": "2026-03-03 12:15:30",
+      "upvotes": 10,
+      "downvotes": 0
+    }
+  ],
+  "trending_topics": ["#tech", "#lifestyle", "#innovation"]
+}
+```
+
+**Status Code:** `200 OK` (No followed users)
+
+```json
+{
+  "message": "no users being followed , yet"
+}
+```
+
+Returned when the authenticated user is not following any other users.
+
+**Status Code:** `200 OK` (No posts from followed users)
+
+```json
+{
+  "message": "no recent posts from followed users"
+}
+```
+
+Returned when the users being followed have not created any posts.
+
+### Error Responses
+
+**Status Code:** `401 Unauthorized`
+
+```json
+{
+  "error": "invalid token , please login again"
+}
+```
+
+Returned when the Authorization header is missing.
+
+```json
+{
+  "error": "unauthorized"
+}
+```
+
+Returned when the provided token is invalid or not found.
+
+## Example Request
+
+```bash
+curl -X GET https://api.example.com/api/fyp \
+  -H "Authorization: your-auth-token"
+```
+
+## Example Response
+
+```json
+{
+  "posts": [
+    {
+      "id": 456,
+      "username": "alice",
+      "content": "Check out this cool feature! #tech #innovation",
+      "created_at": "2026-03-03 14:20:00",
+      "upvotes": 25,
+      "downvotes": 2
+    },
+    {
+      "id": 789,
+      "username": "charlie",
+      "content": "Just launched my new project!",
+      "created_at": "2026-03-03 10:45:12",
+      "upvotes": 50,
+      "downvotes": 5
+    }
+  ],
+  "trending_topics": ["#tech", "#innovation", "#launch"]
+}
+```
+
+## Algorithm Details
+
+The For You Page feed is generated using the following algorithm:
+
+1. **Followed Users Posts**: Fetches up to 20 most recent posts from users the authenticated user follows
+2. **Global Posts**: Fetches up to 20 most recent posts from users NOT being followed
+3. **Old Posts**: Fetches up to 100 oldest posts from the platform
+4. **Shuffle**: All posts are combined and randomly shuffled
+5. **Limit**: The final feed is limited to 30 posts
+6. **Trending Topics**: Hashtags are extracted from global posts using regex pattern `#(\w+)`, and the top 3 most common hashtags are returned

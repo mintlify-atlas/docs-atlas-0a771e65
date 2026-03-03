@@ -1,0 +1,334 @@
+---
+title: 'Direct Messaging'
+description: 'Private one-on-one conversations between Mirage users'
+icon: 'envelope'
+---
+
+Direct messaging in Mirage allows users to have private conversations with each other through a personal inbox system. Send and receive messages securely with any user on the platform.
+
+## Sending Direct Messages
+
+Start a private conversation with any Mirage user by sending them a direct message.
+
+<Steps>
+  <Step title="Find User">
+    Navigate to the user's profile or select them from your contacts
+  </Step>
+  
+  <Step title="Compose Message">
+    Write your message content (text-based)
+  </Step>
+  
+  <Step title="Send">
+    System validates the recipient exists and delivers the message to their inbox
+  </Step>
+  
+  <Step title="Delivery Confirmation">
+    Receive confirmation that your message was successfully sent
+  </Step>
+</Steps>
+
+### Send Message Implementation
+
+```python app/routes/inbox.py:8-42
+@inbox_bp.route('/api/send_inbox_message',methods=['POST'])
+def send_inbox_message():
+    data = request.get_json()
+    token = request.headers.get('Authorization')
+    recipient_username = data.get('recipient')
+    message = data.get('message','')
+    
+    if not token:
+        return jsonify({'error':'invalid token , please re-login'}),401
+    
+    if not recipient_username or not message:
+        return jsonify({'error':'missing recipient or message'}),400
+    
+    # Authenticate sender
+    c.execute('SELECT username FROM users WHERE token=?',(token,))
+    user = c.fetchone()
+    if not user:
+        return jsonify({'error':'unauthorized'}),401
+    sender = user[0]
+    
+    # Verify recipient exists
+    c.execute('SELECT username FROM users WHERE username=?',(recipient_username,))
+    recipient = c.fetchone()
+    if not recipient:
+        return jsonify({'erorr':'recipient not found'}),404
+    recipient = recipient[0]
+    
+    # Insert message into inbox
+    c.execute('INSERT INTO inbox_messages (sender,recipient,message) VALUES (?,?,?)',
+              (sender,recipient,message))
+    conn.commit()
+    
+    return jsonify({'message':'message sent'}),200
+```
+
+<Info>
+  **Message Validation**: The system verifies both sender authentication and recipient existence before delivering any message.
+</Info>
+
+## Viewing Your Inbox
+
+Access all your direct messages in one unified inbox view.
+
+<Tabs>
+  <Tab title="Inbox Overview">
+    Your inbox displays all messages where you're either the sender or recipient:
+    
+    ```python app/routes/inbox.py:45-84
+    @inbox_bp.route('/api/inbox', methods=['GET'])
+    def inbox():
+        token = request.headers.get('Authorization')
+        
+        # Get user from token
+        c.execute('SELECT username FROM users WHERE token=?', (token,))
+        user = c.fetchone()
+        username = user[0]
+        
+        # Fetch all messages (sent and received)
+        c.execute('''
+            SELECT im.id, im.sender, im.recipient, im.message, im.created_at,
+                   u.avatar_url AS sender_avatar
+            FROM inbox_messages im
+            LEFT JOIN users u ON im.sender = u.username
+            WHERE im.recipient=? OR im.sender=?
+            ORDER BY im.created_at DESC
+        ''', (username, username))
+    ```
+  </Tab>
+  
+  <Tab title="Message Details">
+    Each inbox message includes:
+    
+    - **Message ID**: Unique identifier
+    - **Sender**: Username who sent the message
+    - **Recipient**: Username who received the message
+    - **Content**: The message text
+    - **Timestamp**: When the message was sent
+    - **Avatar**: Sender's profile picture (or default)
+    
+    ```python app/routes/inbox.py:73-82
+    for msg in messages_rows:
+        inbox_data.append({
+            'id': msg[0],
+            'sender': msg[1],
+            'recipient': msg[2],
+            'message': msg[3],
+            'created_at': msg[4],
+            'avatar_url': msg[5] or "https://i.pinimg.com/736x/20/da/fa/20dafa83d38f2277472e132bf1f21c22.jpg"
+        })
+    ```
+  </Tab>
+  
+  <Tab title="Conversation View">
+    Messages are ordered by timestamp (most recent first) for easy conversation tracking. You can see both:
+    - Messages **you sent** to others
+    - Messages **others sent** to you
+  </Tab>
+</Tabs>
+
+<Card title="Default Avatar" icon="user-circle">
+  If a user doesn't have a custom avatar, Mirage provides a default avatar image to ensure consistent UI display.
+</Card>
+
+## Deleting Messages
+
+Remove messages from your inbox for privacy or organization.
+
+<Warning>
+  **Permanent Deletion**: Deleted messages cannot be recovered. This action is permanent.
+</Warning>
+
+```python app/routes/inbox.py:86-124
+@inbox_bp.route('/api/delete_inbox_message',methods=['POST'])
+def delete_inbox_message():
+    data = request.get_json()
+    token = request.headers.get('Authorization')
+    message_id = data.get('message_id')
+
+    if not token:
+        return jsonify({'error': 'invalid token, please re-login'}), 401
+    
+    if not message_id:
+        return jsonify({'error': 'missing message ID'}), 400
+
+    # Verify user is authorized
+    c.execute('SELECT username FROM users WHERE token=?', (token,))
+    user = c.fetchone()
+    username = user[0]
+    
+    # Check if message exists and user is sender or recipient
+    c.execute('SELECT * FROM inbox_messages WHERE id=? AND (recipient=? OR sender=?)', 
+              (message_id, username, username))
+    msg = c.fetchone()
+    
+    if not msg:
+        return jsonify({'error': 'message not found or unauthorized access'}), 404
+    
+    # Delete the message
+    c.execute('DELETE FROM inbox_messages WHERE id=?', (message_id,))
+    conn.commit()
+
+    return jsonify({'message': 'message deleted successfully'}), 200
+```
+
+### Deletion Authorization
+
+<AccordionGroup>
+  <Accordion title="Who Can Delete?">
+    You can delete a message if you are either:
+    - The **sender** of the message
+    - The **recipient** of the message
+    
+    This allows both parties in a conversation to manage their inbox.
+  </Accordion>
+  
+  <Accordion title="Database Cleanup">
+    When a message is deleted, it's permanently removed from the database:
+    
+    ```sql
+    DELETE FROM inbox_messages WHERE id=?
+    ```
+  </Accordion>
+</AccordionGroup>
+
+## Inbox Count
+
+Quickly see how many messages are in your inbox without loading all messages.
+
+```python app/routes/inbox.py:127-149
+@inbox_bp.route('/api/inbox_count',methods=['GET'])
+def inbox_count():
+    token = request.headers.get('Authorization')
+    if not token:
+        return jsonify({'error': 'invalid token, please re-login'}), 401
+    
+    # Get user
+    c.execute('SELECT username FROM users WHERE token=?', (token,))
+    user = c.fetchone()
+    username = user[0]
+    
+    # Count all messages (sent + received)
+    c.execute('SELECT COUNT(*) FROM inbox_messages WHERE recipient=? OR sender=?', 
+              (username, username))
+    count = c.fetchone()[0]
+    
+    return jsonify({'inbox_count': count}), 200
+```
+
+<Card title="Badge Notification" icon="bell">
+  Use the inbox count endpoint to display notification badges in your UI, showing users how many unread or total messages they have.
+</Card>
+
+## Database Schema
+
+Direct messages are stored in the inbox_messages table:
+
+```sql app/db.py:104-112
+CREATE TABLE IF NOT EXISTS inbox_messages(
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  sender TEXT NOT NULL,
+  recipient TEXT NOT NULL,
+  message TEXT NOT NULL,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY(sender) REFERENCES users(username),
+  FOREIGN KEY(recipient) REFERENCES users(username)
+)
+```
+
+### Schema Features
+
+<CardGroup cols={2}>
+  <Card title="Foreign Keys" icon="link">
+    Both sender and recipient are linked to the users table, ensuring referential integrity
+  </Card>
+  
+  <Card title="Timestamps" icon="clock">
+    Automatic timestamp recording for message chronology
+  </Card>
+  
+  <Card title="Auto-increment IDs" icon="hashtag">
+    Unique message IDs for easy reference and deletion
+  </Card>
+  
+  <Card title="Text Content" icon="align-left">
+    Flexible text storage for message content of any length
+  </Card>
+</CardGroup>
+
+## Privacy & Security
+
+<Tabs>
+  <Tab title="Authentication Required">
+    All inbox operations require a valid authentication token:
+    
+    ```python
+    token = request.headers.get('Authorization')
+    c.execute('SELECT username FROM users WHERE token=?', (token,))
+    ```
+  </Tab>
+  
+  <Tab title="Access Control">
+    Users can only:
+    - Send messages as themselves
+    - View messages where they're sender or recipient
+    - Delete messages they're involved in
+  </Tab>
+  
+  <Tab title="User Verification">
+    The system verifies recipient existence before message delivery to prevent errors:
+    
+    ```python
+    c.execute('SELECT username FROM users WHERE username=?',(recipient_username,))
+    if not c.fetchone():
+        return jsonify({'erorr':'recipient not found'}),404
+    ```
+  </Tab>
+</Tabs>
+
+## Use Cases
+
+<CardGroup cols={2}>
+  <Card title="Private Conversations" icon="comments">
+    Have one-on-one discussions away from public feeds and chat rooms
+  </Card>
+  
+  <Card title="User Coordination" icon="handshake">
+    Coordinate private room access or arrange meetups in chat rooms
+  </Card>
+  
+  <Card title="Direct Feedback" icon="message">
+    Send direct feedback or questions to specific users
+  </Card>
+  
+  <Card title="Network Building" icon="users">
+    Establish connections with followers and other community members
+  </Card>
+</CardGroup>
+
+## API Endpoints
+
+<CardGroup cols={2}>
+  <Card title="Send Message" icon="paper-plane" href="/api/inbox/send-message">
+    Send a direct message to another user
+  </Card>
+  
+  <Card title="Get Inbox" icon="inbox" href="/api/inbox/get-messages">
+    Retrieve all your messages
+  </Card>
+  
+  <Card title="Delete Message" icon="trash" href="/api/inbox/delete-message">
+    Remove a message from inbox
+  </Card>
+  
+  <Card title="Inbox Count" icon="hashtag">
+    Get total message count
+  </Card>
+</CardGroup>
+
+<Note>
+  All direct messaging endpoints require authentication via the `Authorization` header with a valid session token.
+</Note>

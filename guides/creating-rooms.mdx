@@ -1,0 +1,369 @@
+---
+title: "Creating and Managing Chat Rooms"
+description: "Learn how to create public and private chat rooms, manage members, and send messages in Mirage"
+icon: "comments"
+---
+
+## Overview
+
+Mirage allows you to create both public and private chat rooms for real-time communication. This guide walks you through room creation, joining rooms, and managing room messages.
+
+<Note>
+  Mirage limits public rooms to **5 maximum** per instance. Private rooms have no limit.
+</Note>
+
+## Creating a Chat Room
+
+<Steps>
+  <Step title="Authenticate your request">
+    All room operations require a valid authentication token in the `Authorization` header.
+
+    ```python
+    headers = {
+        'Authorization': 'your_auth_token',
+        'Content-Type': 'application/json'
+    }
+    ```
+  </Step>
+
+  <Step title="Send room creation request">
+    Create a room by sending a POST request to `/api/create_room` with the room details.
+
+    ```python
+    import requests
+
+    # Create a public room
+    response = requests.post(
+        'https://api.mirage.com/api/create_room',
+        headers=headers,
+        json={
+            'room_name': 'general-chat',
+            'is_private': 0  # 0 for public, 1 for private
+        }
+    )
+    ```
+
+    <Warning>
+      Room names must be unique across the entire platform. If a room with the same name exists, you'll receive a `400` error.
+    </Warning>
+  </Step>
+
+  <Step title="Handle the response">
+    On success, you'll receive the room ID and confirmation message.
+
+    ```json
+    {
+        "message": "room \"general-chat\" created",
+        "room_id": 42
+    }
+    ```
+
+    The creator is automatically added as a member of the room.
+  </Step>
+</Steps>
+
+## Creating Private Rooms
+
+Private rooms require a password and bypass the 5-room public limit.
+
+```python
+# Create a private room
+response = requests.post(
+    'https://api.mirage.com/api/create_room',
+    headers=headers,
+    json={
+        'room_name': 'secret-project',
+        'is_private': 1,
+        'password': 'secure_password123'
+    }
+)
+```
+
+<Note>
+  Passwords are hashed using SHA-256 before storage. See `app/utils.py:9` for the implementation.
+</Note>
+
+### Password Requirements
+
+- **Required** for private rooms (returns `400` if missing)
+- Stored as SHA-256 hash
+- Cannot be empty or whitespace-only
+
+## Public Room Limit
+
+Mirage enforces a **maximum of 5 public rooms** system-wide to encourage focused discussions.
+
+```python
+# From app/routes/chat.py:50-56
+if not is_private:
+    c.execute('SELECT COUNT(*) FROM rooms WHERE is_private=0')
+    public_room_count = c.fetchone()[0]
+    if public_room_count >= 5:
+        return jsonify({
+            'error': 'maximum number of public rooms reached (5). '
+                     'Please create a private room to continue'
+        }), 400
+```
+
+<Warning>
+  When the public room limit is reached, you'll receive this error message. Create a private room instead or wait for an existing public room to be deleted.
+</Warning>
+
+## Joining Existing Rooms
+
+<Steps>
+  <Step title="List available rooms">
+    Get all public rooms and your membership status.
+
+    ```python
+    response = requests.get(
+        'https://api.mirage.com/api/rooms',
+        headers=headers
+    )
+
+    # Response
+    {
+        "rooms": [
+            {
+                "room_id": 1,
+                "name": "general-chat",
+                "joined": false
+            },
+            {
+                "room_id": 2,
+                "name": "tech-discussion",
+                "joined": true
+            }
+        ]
+    }
+    ```
+  </Step>
+
+  <Step title="Join a room">
+    For **public rooms**, send a join request without a password.
+
+    ```python
+    response = requests.post(
+        'https://api.mirage.com/api/join_room',
+        headers=headers,
+        json={
+            'name': 'general-chat'
+        }
+    )
+    ```
+
+    For **private rooms**, include the password.
+
+    ```python
+    response = requests.post(
+        'https://api.mirage.com/api/join_room',
+        headers=headers,
+        json={
+            'name': 'secret-project',
+            'password': 'secure_password123'
+        }
+    )
+    ```
+  </Step>
+</Steps>
+
+### Join Room Error Codes
+
+| Status Code | Error | Description |
+|-------------|-------|-------------|
+| `400` | Missing room name or token | Required fields not provided |
+| `401` | Unauthorized | Invalid authentication token |
+| `403` | Password required | Private room accessed without password |
+| `403` | Wrong password | Incorrect password for private room |
+| `404` | Room not found | Room doesn't exist |
+
+## Sending Messages
+
+Once you're a member of a room, you can send messages.
+
+```python
+response = requests.post(
+    'https://api.mirage.com/api/send_room_message',
+    headers=headers,
+    json={
+        'room_id': 42,
+        'message': 'Hello everyone!'
+    }
+)
+```
+
+<Note>
+  You must be a member of the room to send messages. The system verifies membership in `app/routes/chat.py:146-149`.
+</Note>
+
+### Message Constraints
+
+Messages have built-in lifecycle management:
+
+- **Maximum messages**: 100 stored in memory (`MAX_MESSAGES` in `app/config.py:5`)
+- **Message lifespan**: 30 minutes (`MESSAGE_LIFESPAN = 60 * 30 * 30` in `app/config.py:6`)
+- Oldest messages are removed when limit is exceeded
+- Messages older than lifespan are automatically pruned
+
+```python
+# From app/routes/chat.py:161-164
+now = time.time()
+messages[:] = [m for m in messages if now - m['created_at'] < MESSAGE_LIFESPAN]
+if len(messages) > MAX_MESSAGES:
+    messages.pop(0)
+```
+
+## Retrieving Messages
+
+Fetch all messages for a room you're a member of.
+
+```python
+response = requests.get(
+    'https://api.mirage.com/api/get_room_messages',
+    headers=headers,
+    params={'room_id': 42}
+)
+
+# Response
+{
+    "messages": [
+        {
+            "username": "alice",
+            "message": "Hello everyone!",
+            "created_at": 1709467200.0,
+            "room_id": 42
+        }
+    ]
+}
+```
+
+<Warning>
+  You'll receive a `403` error if you try to retrieve messages from a room you're not a member of.
+</Warning>
+
+## Managing Room Members
+
+### View Room Members
+
+Get a list of all members in a room.
+
+```python
+response = requests.get(
+    'https://api.mirage.com/api/room_members/42',
+    headers=headers
+)
+
+# Response
+{
+    "members": ["alice", "bob", "charlie"]
+}
+```
+
+### View Your Rooms
+
+Get all rooms you're currently a member of, including both public and private rooms.
+
+```python
+response = requests.get(
+    'https://api.mirage.com/api/user_rooms',
+    headers=headers
+)
+
+# Response
+{
+    "rooms": [
+        {
+            "room_id": 1,
+            "name": "general-chat",
+            "is_private": 0
+        },
+        {
+            "room_id": 3,
+            "name": "secret-project",
+            "is_private": 1
+        }
+    ]
+}
+```
+
+## Database Schema
+
+Understanding the underlying schema helps with advanced integrations.
+
+<Accordion title="Room Tables Schema">
+  ```sql
+  -- Rooms table (app/db.py:89-95)
+  CREATE TABLE rooms (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      name TEXT UNIQUE NOT NULL,
+      is_private INTEGER DEFAULT 0,
+      password_hash TEXT,
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+  )
+
+  -- Room members table (app/db.py:96-103)
+  CREATE TABLE room_members (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      room_id INTEGER NOT NULL,
+      username TEXT NOT NULL,
+      joined_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      FOREIGN KEY(room_id) REFERENCES rooms(id),
+      FOREIGN KEY(username) REFERENCES users(username)
+  )
+  ```
+</Accordion>
+
+## Best Practices
+
+<CardGroup cols={2}>
+  <Card title="Use Private Rooms" icon="lock">
+    When the 5 public room limit is reached, create private rooms for team discussions.
+  </Card>
+  
+  <Card title="Descriptive Names" icon="tag">
+    Use clear, descriptive room names to help users find relevant conversations.
+  </Card>
+  
+  <Card title="Password Strength" icon="shield">
+    Use strong passwords for private rooms to prevent unauthorized access.
+  </Card>
+  
+  <Card title="Monitor Membership" icon="users">
+    Regularly check room members to ensure appropriate access.
+  </Card>
+</CardGroup>
+
+## Common Issues
+
+<AccordionGroup>
+  <Accordion title="Room creation fails with 'room already exists'">
+    Room names must be globally unique. Try a different name or check if someone else created a room with that name.
+  </Accordion>
+
+  <Accordion title="Can't create more public rooms">
+    The system has a hard limit of 5 public rooms. Either:
+    - Create a private room instead
+    - Wait for an existing public room to be deleted
+    - Contact the administrator to remove unused rooms
+  </Accordion>
+
+  <Accordion title="Messages not appearing">
+    Messages older than 30 minutes are automatically pruned. If you sent a message more than 30 minutes ago, it may have been removed from the in-memory store.
+  </Accordion>
+
+  <Accordion title="Can't join private room">
+    Ensure you're providing the correct password. Passwords are case-sensitive and must match exactly.
+  </Accordion>
+</AccordionGroup>
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="File Sharing" icon="file" href="/guides/file-sharing">
+    Learn how to share files in chat rooms
+  </Card>
+  
+  <Card title="Privacy Settings" icon="shield-halved" href="/guides/privacy-settings">
+    Configure privacy settings for your account
+  </Card>
+</CardGroup>

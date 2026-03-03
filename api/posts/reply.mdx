@@ -1,0 +1,118 @@
+---
+title: 'Reply to Post'
+api: 'POST /api/reply_to_post'
+description: 'Create a reply to an existing post'
+---
+
+## Endpoint
+
+```
+POST /api/reply_to_post
+```
+
+Creates a reply to an existing post. The reply content cannot exceed 512 characters. When a reply is created, the user's post count in their profile is incremented.
+
+## Headers
+
+<ParamField header="Authorization" type="string" required>
+  Authentication token for the user
+</ParamField>
+
+## Request Body
+
+<ParamField body="post_id" type="integer" required>
+  The ID of the post to reply to
+</ParamField>
+
+<ParamField body="content" type="string" required>
+  The content of the reply. Must not be empty and cannot exceed 512 characters.
+</ParamField>
+
+## Response
+
+<ResponseField name="message" type="string">
+  Success message confirming the reply was created
+</ResponseField>
+
+### Success Response
+
+**Status Code:** `201 Created`
+
+```json
+{
+  "message": "reply created"
+}
+```
+
+### Error Responses
+
+**Status Code:** `400 Bad Request`
+
+```json
+{
+  "error": "missing post_id or content"
+}
+```
+
+Returned when `post_id` or `content` is missing from the request body.
+
+```json
+{
+  "error": "reply content cannot exceed 512 characters"
+}
+```
+
+Returned when the content length exceeds 512 characters.
+
+**Status Code:** `401 Unauthorized`
+
+```json
+{
+  "error": "invalid token, please re-login"
+}
+```
+
+Returned when the Authorization header is missing.
+
+```json
+{
+  "error": "unauthorized"
+}
+```
+
+Returned when the provided token is invalid or not found.
+
+**Status Code:** `404 Not Found`
+
+```json
+{
+  "error": "post not found"
+}
+```
+
+Returned when the specified post does not exist.
+
+## Example Request
+
+```bash
+curl -X POST https://api.example.com/api/reply_to_post \
+  -H "Authorization: your-auth-token" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "post_id": 123,
+    "content": "Great post! I totally agree with this."
+  }'
+```
+
+## Example Response
+
+```json
+{
+  "message": "reply created"
+}
+```
+
+## Behavior Notes
+
+- Replies increment the user's post count in their profile statistics
+- The reply is stored in a separate `replies` table linked to the original post via `post_id`

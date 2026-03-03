@@ -1,0 +1,107 @@
+---
+title: 'Get Posts'
+api: 'GET /api/get_posts/<username>'
+description: 'Retrieve all posts from a specific user'
+---
+
+## Endpoint
+
+```
+GET /api/get_posts/<username>
+```
+
+Retrieves all posts from a specified user, ordered by creation date (most recent first).
+
+## Path Parameters
+
+<ParamField path="username" type="string" required>
+  The username of the user whose posts you want to retrieve
+</ParamField>
+
+## Response
+
+<ResponseField name="posts" type="array">
+  An array of post objects
+  
+  <ResponseField name="id" type="integer">
+    Unique identifier for the post
+  </ResponseField>
+  
+  <ResponseField name="username" type="string">
+    Username of the post author
+  </ResponseField>
+  
+  <ResponseField name="content" type="string">
+    The content of the post
+  </ResponseField>
+  
+  <ResponseField name="created_at" type="string">
+    Timestamp when the post was created
+  </ResponseField>
+  
+  <ResponseField name="upvotes" type="integer">
+    Number of upvotes the post has received
+  </ResponseField>
+  
+  <ResponseField name="downvotes" type="integer">
+    Number of downvotes the post has received
+  </ResponseField>
+</ResponseField>
+
+### Success Response
+
+**Status Code:** `200 OK`
+
+```json
+{
+  "posts": [
+    {
+      "id": 123,
+      "username": "johndoe",
+      "content": "This is a post",
+      "created_at": "2026-03-03 12:34:56",
+      "upvotes": 42,
+      "downvotes": 3
+    },
+    {
+      "id": 122,
+      "username": "johndoe",
+      "content": "Another post",
+      "created_at": "2026-03-02 10:20:30",
+      "upvotes": 15,
+      "downvotes": 1
+    }
+  ]
+}
+```
+
+If the user has no posts, returns an empty array:
+
+```json
+{
+  "posts": []
+}
+```
+
+## Example Request
+
+```bash
+curl -X GET https://api.example.com/api/get_posts/johndoe
+```
+
+## Example Response
+
+```json
+{
+  "posts": [
+    {
+      "id": 123,
+      "username": "johndoe",
+      "content": "This is a post",
+      "created_at": "2026-03-03 12:34:56",
+      "upvotes": 42,
+      "downvotes": 3
+    }
+  ]
+}
+```

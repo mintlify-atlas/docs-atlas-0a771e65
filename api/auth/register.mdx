@@ -1,0 +1,79 @@
+---
+title: "Register User"
+api: "POST /api/register"
+description: "Create a new user account with username, email, and password"
+---
+
+Creates a new user account in the Mirage system. This endpoint validates the provided credentials, checks for existing users, hashes the password, and initializes the user profile with default statistics.
+
+## Request Body
+
+<ParamField body="username" type="string" required>
+  The desired username for the account. Must be unique and non-empty.
+</ParamField>
+
+<ParamField body="email" type="string" required>
+  The user's email address. Must be unique and non-empty.
+</ParamField>
+
+<ParamField body="password" type="string" required>
+  The user's password. Will be hashed before storage.
+</ParamField>
+
+<ParamField body="avatar_url" type="string">
+  Optional URL for the user's avatar image.
+</ParamField>
+
+<ParamField body="description" type="string">
+  Optional user bio or description. Maximum 500 words.
+</ParamField>
+
+## Response
+
+<ResponseField name="message" type="string">
+  Success message confirming user registration.
+</ResponseField>
+
+<ResponseField name="error" type="string">
+  Error message if registration fails.
+</ResponseField>
+
+## Status Codes
+
+- **201**: User successfully created
+- **400**: Invalid request (missing required fields, user already exists, or description exceeds 500 words)
+
+## Error Messages
+
+- `"I can't see a single field you filled"` - Missing required fields (username, email, or password)
+- `"You are talking too much in the description"` - Description exceeds 500 words
+- `" the user already exists"` - Username or email already registered
+
+## Example Request
+
+```bash
+curl -X POST https://api.mirage.com/api/register \
+  -H "Content-Type: application/json" \
+  -d '{
+    "username": "johndoe",
+    "email": "john@example.com",
+    "password": "securepassword123",
+    "avatar_url": "https://example.com/avatar.jpg",
+    "description": "Software developer and tech enthusiast"
+  }'
+```
+
+## Example Response
+
+```json
+{
+  "message": "Welcome to MIRAGE"
+}
+```
+
+## Notes
+
+- Passwords are securely hashed using Werkzeug's `generate_password_hash` before storage
+- A user profile is automatically created with initial stats (followers: 0, following: 0, posts: 0, upvotes: 0, downvotes: 0)
+- Username and email must be unique across the system
+- Description word count is validated (maximum 500 words)

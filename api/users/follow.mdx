@@ -1,0 +1,94 @@
+---
+title: "Follow User"
+api: "POST /api/follow"
+description: "Follow a user"
+---
+
+Creates a following relationship between the authenticated user and a target user. Updates follower and following counts automatically.
+
+## Headers
+
+<ParamField header="Authorization" type="string" required>
+  Authentication token for the current user
+</ParamField>
+
+## Body Parameters
+
+<ParamField body="username" type="string" required>
+  The username of the user to follow
+</ParamField>
+
+## Response
+
+<ResponseField name="message" type="string">
+  Confirmation message indicating successful follow action
+</ResponseField>
+
+## Status Codes
+
+<ResponseField name="200" type="Success">
+  User followed successfully
+  
+  ```json
+  {
+    "message": "now following {username}"
+  }
+  ```
+</ResponseField>
+
+<ResponseField name="400" type="Error">
+  Bad request - missing fields or already following
+  
+  Missing fields:
+  ```json
+  {
+    "error": "missing fields"
+  }
+  ```
+  
+  Already following:
+  ```json
+  {
+    "error": "already following"
+  }
+  ```
+</ResponseField>
+
+<ResponseField name="401" type="Error">
+  Unauthorized - invalid or missing authentication token
+  
+  ```json
+  {
+    "error": "unauthorized"
+  }
+  ```
+</ResponseField>
+
+<ResponseField name="404" type="Error">
+  Target user not found
+  
+  ```json
+  {
+    "error": "user not found"
+  }
+  ```
+</ResponseField>
+
+## Example Request
+
+```bash
+curl -X POST https://api.example.com/api/follow \
+  -H "Authorization: your-auth-token" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "username": "johndoe"
+  }'
+```
+
+## Example Response
+
+```json
+{
+  "message": "now following johndoe"
+}
+```

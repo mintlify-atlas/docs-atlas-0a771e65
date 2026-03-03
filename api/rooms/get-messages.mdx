@@ -1,0 +1,123 @@
+---
+title: "Get Room Messages"
+api: "GET /api/get_room_messages"
+description: "Retrieve messages from a chat room"
+---
+
+## Overview
+
+Retrieves all messages for a specific chat room. Only members of the room can access its messages. Messages are automatically filtered by room ID and only non-expired messages are returned.
+
+## Authentication
+
+Requires a valid authentication token in the Authorization header.
+
+## Request
+
+### Headers
+
+<ParamField header="Authorization" type="string" required>
+  User authentication token
+</ParamField>
+
+### Query Parameters
+
+<ParamField query="room_id" type="string" required>
+  The ID of the room to retrieve messages from
+</ParamField>
+
+## Response
+
+<ResponseField name="messages" type="array">
+  Array of message objects for the specified room
+  
+  <ResponseField name="username" type="string">
+    The username of the message sender
+  </ResponseField>
+  
+  <ResponseField name="message" type="string">
+    The message content
+  </ResponseField>
+  
+  <ResponseField name="created_at" type="number">
+    Unix timestamp of when the message was sent
+  </ResponseField>
+  
+  <ResponseField name="room_id" type="integer">
+    The room ID (matches the requested room_id)
+  </ResponseField>
+</ResponseField>
+
+## Status Codes
+
+- **200**: Successfully retrieved messages
+- **400**: Missing token or room_id
+- **401**: Unauthorized - invalid or missing token
+- **403**: User is not a member of the room
+
+## Error Responses
+
+### Missing Fields
+```json
+{
+  "error": "missing token or room id"
+}
+```
+
+### Unauthorized
+```json
+{
+  "error": "unauthorized"
+}
+```
+
+### Not a Room Member
+```json
+{
+  "error": "you are not in this room"
+}
+```
+
+## Example
+
+```bash
+curl -X GET "https://api.mirage.com/api/get_room_messages?room_id=42" \
+  -H "Authorization: your-auth-token"
+```
+
+### Success Response
+
+```json
+{
+  "messages": [
+    {
+      "username": "john_doe",
+      "message": "Hello everyone!",
+      "created_at": 1709481234.567,
+      "room_id": 42
+    },
+    {
+      "username": "jane_smith",
+      "message": "Hi John!",
+      "created_at": 1709481256.789,
+      "room_id": 42
+    }
+  ]
+}
+```
+
+### Empty Room Response
+
+```json
+{
+  "messages": []
+}
+```
+
+## Notes
+
+- Only messages from the specified room are returned.
+- You must be a member of the room to retrieve its messages.
+- Messages older than 15 hours (54,000 seconds) are automatically expired and will not appear.
+- Messages are returned in the order they were stored.
+- The system maintains a maximum of 100 messages across all rooms.

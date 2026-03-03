@@ -1,0 +1,137 @@
+---
+title: 'Vote on Post'
+api: 'POST /api/vote_post'
+description: 'Upvote or downvote a post'
+---
+
+## Endpoint
+
+```
+POST /api/vote_post
+```
+
+Allows authenticated users to upvote or downvote posts. Users cannot vote on their own posts and cannot vote the same way twice on the same post. If a user changes their vote (from upvote to downvote or vice versa), the previous vote is reversed and the new vote is applied.
+
+## Headers
+
+<ParamField header="Authorization" type="string" required>
+  Authentication token for the user
+</ParamField>
+
+## Request Body
+
+<ParamField body="post_id" type="integer" required>
+  The ID of the post to vote on
+</ParamField>
+
+<ParamField body="vote_type" type="string" required>
+  The type of vote. Must be either `"up"` or `"down"`
+</ParamField>
+
+## Response
+
+<ResponseField name="message" type="string">
+  Success message confirming the vote was counted
+</ResponseField>
+
+### Success Response
+
+**Status Code:** `200 OK`
+
+```json
+{
+  "message": "vote counted"
+}
+```
+
+### Error Responses
+
+**Status Code:** `400 Bad Request`
+
+```json
+{
+  "error": "missing post_id or vote_type"
+}
+```
+
+Returned when `post_id` or `vote_type` is missing from the request body.
+
+```json
+{
+  "error": "you can only upvote or downvote"
+}
+```
+
+Returned when `vote_type` is not `"up"` or `"down"`.
+
+```json
+{
+  "error": "already voted this way"
+}
+```
+
+Returned when the user has already voted with the same vote type on this post.
+
+**Status Code:** `401 Unauthorized`
+
+```json
+{
+  "error": "login to vote"
+}
+```
+
+Returned when the Authorization header is missing.
+
+```json
+{
+  "error": "unauthorized"
+}
+```
+
+Returned when the provided token is invalid or not found.
+
+**Status Code:** `403 Forbidden`
+
+```json
+{
+  "error": "cannot vote on your own post"
+}
+```
+
+Returned when a user attempts to vote on their own post.
+
+**Status Code:** `404 Not Found`
+
+```json
+{
+  "error": "post not found"
+}
+```
+
+Returned when the specified post does not exist.
+
+## Example Request
+
+```bash
+curl -X POST https://api.example.com/api/vote_post \
+  -H "Authorization: your-auth-token" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "post_id": 123,
+    "vote_type": "up"
+  }'
+```
+
+## Example Response
+
+```json
+{
+  "message": "vote counted"
+}
+```
+
+## Behavior Notes
+
+- When a user votes on a post, both the post's vote count and the post author's profile vote count are updated
+- If a user changes their vote from upvote to downvote (or vice versa), the previous vote is decremented and the new vote is incremented
+- Users can only have one active vote per post at a time

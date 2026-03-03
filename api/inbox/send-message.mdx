@@ -1,0 +1,99 @@
+---
+title: "Send Message"
+api: "POST /api/send_inbox_message"
+description: "Send a direct message to another user"
+---
+
+Sends a direct message from the authenticated user to a specified recipient.
+
+## Request
+
+### Headers
+
+<ParamField header="Authorization" type="string" required>
+  User authentication token
+</ParamField>
+
+<ParamField header="Content-Type" type="string" default="application/json">
+  Must be `application/json`
+</ParamField>
+
+### Body
+
+<ParamField body="recipient" type="string" required>
+  Username of the message recipient
+</ParamField>
+
+<ParamField body="message" type="string" required>
+  Message content to send
+</ParamField>
+
+## Response
+
+<ResponseField name="message" type="string">
+  Success message confirming the message was sent
+</ResponseField>
+
+### Success Response
+
+```json
+{
+  "message": "message sent"
+}
+```
+
+## Status Codes
+
+<ResponseField name="200" type="Success">
+  Message sent successfully
+</ResponseField>
+
+<ResponseField name="400" type="Bad Request">
+  Missing recipient or message in request body
+  
+  ```json
+  {
+    "error": "missing recipient or message"
+  }
+  ```
+</ResponseField>
+
+<ResponseField name="401" type="Unauthorized">
+  Invalid or missing authentication token
+  
+  ```json
+  {
+    "error": "invalid token , please re-login"
+  }
+  ```
+  
+  or
+  
+  ```json
+  {
+    "error": "unauthorized"
+  }
+  ```
+</ResponseField>
+
+<ResponseField name="404" type="Not Found">
+  Recipient user not found
+  
+  ```json
+  {
+    "erorr": "recipient not found"
+  }
+  ```
+</ResponseField>
+
+## Example
+
+```bash
+curl -X POST https://api.example.com/api/send_inbox_message \
+  -H "Authorization: your-auth-token" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "recipient": "john_doe",
+    "message": "Hello, how are you?"
+  }'
+```

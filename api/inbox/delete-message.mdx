@@ -1,0 +1,94 @@
+---
+title: "Delete Message"
+api: "POST /api/delete_inbox_message"
+description: "Delete a direct message"
+---
+
+Deletes a direct message. Users can only delete messages where they are either the sender or recipient.
+
+## Request
+
+### Headers
+
+<ParamField header="Authorization" type="string" required>
+  User authentication token
+</ParamField>
+
+<ParamField header="Content-Type" type="string" default="application/json">
+  Must be `application/json`
+</ParamField>
+
+### Body
+
+<ParamField body="message_id" type="integer" required>
+  ID of the message to delete
+</ParamField>
+
+## Response
+
+<ResponseField name="message" type="string">
+  Success message confirming the message was deleted
+</ResponseField>
+
+### Success Response
+
+```json
+{
+  "message": "message deleted successfully"
+}
+```
+
+## Status Codes
+
+<ResponseField name="200" type="Success">
+  Message deleted successfully
+</ResponseField>
+
+<ResponseField name="400" type="Bad Request">
+  Missing message ID in request body
+  
+  ```json
+  {
+    "error": "missing message ID"
+  }
+  ```
+</ResponseField>
+
+<ResponseField name="401" type="Unauthorized">
+  Invalid or missing authentication token
+  
+  ```json
+  {
+    "error": "invalid token, please re-login"
+  }
+  ```
+  
+  or
+  
+  ```json
+  {
+    "error": "unauthorized"
+  }
+  ```
+</ResponseField>
+
+<ResponseField name="404" type="Not Found">
+  Message not found or user is not authorized to delete it
+  
+  ```json
+  {
+    "error": "message not found or unauthorized access"
+  }
+  ```
+</ResponseField>
+
+## Example
+
+```bash
+curl -X POST https://api.example.com/api/delete_inbox_message \
+  -H "Authorization: your-auth-token" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "message_id": 123
+  }'
+```

@@ -1,0 +1,71 @@
+---
+title: "Login User"
+api: "POST /api/login"
+description: "Authenticate a user and receive an access token"
+---
+
+Authenticates a user with their username and password. Upon successful authentication, generates and returns a unique session token.
+
+## Request Body
+
+<ParamField body="username" type="string" required>
+  The user's username.
+</ParamField>
+
+<ParamField body="password" type="string" required>
+  The user's password.
+</ParamField>
+
+## Response
+
+<ResponseField name="token" type="string">
+  A unique UUID token for authenticating subsequent requests.
+</ResponseField>
+
+<ResponseField name="username" type="string">
+  The authenticated user's username.
+</ResponseField>
+
+<ResponseField name="error" type="string">
+  Error message if authentication fails.
+</ResponseField>
+
+## Status Codes
+
+- **200**: Successfully authenticated
+- **400**: Missing required fields
+- **401**: Invalid password
+- **404**: User not found
+
+## Error Messages
+
+- `"I can't see a single field you filled"` - Missing username or password
+- `"user not found"` - No user exists with the provided username
+- `"wrong password"` - Password does not match stored credentials
+
+## Example Request
+
+```bash
+curl -X POST https://api.mirage.com/api/login \
+  -H "Content-Type: application/json" \
+  -d '{
+    "username": "johndoe",
+    "password": "securepassword123"
+  }'
+```
+
+## Example Response
+
+```json
+{
+  "token": "a1b2c3d4-e5f6-7890-g1h2-i3j4k5l6m7n8",
+  "username": "johndoe"
+}
+```
+
+## Notes
+
+- The token is a UUID v4 string that should be included in subsequent authenticated requests
+- Passwords are verified using Werkzeug's `check_password_hash` function
+- The token is stored in the database and associated with the user's account
+- Previous tokens are overwritten when a new login occurs

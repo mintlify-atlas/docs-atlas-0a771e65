@@ -1,0 +1,59 @@
+---
+title: "Logout User"
+api: "POST /api/logout"
+description: "Invalidate a user's session token"
+---
+
+Logs out a user by invalidating their session token. The token is cleared from the database, making it unusable for future authenticated requests.
+
+## Request Body
+
+<ParamField body="token" type="string" required>
+  The user's current session token to invalidate.
+</ParamField>
+
+## Response
+
+<ResponseField name="message" type="string">
+  Success message confirming logout.
+</ResponseField>
+
+<ResponseField name="error" type="string">
+  Error message if logout fails.
+</ResponseField>
+
+## Status Codes
+
+- **200**: Successfully logged out
+- **400**: Missing token
+- **401**: Invalid or expired token
+
+## Error Messages
+
+- `"no token provided"` - Token field is missing from request
+- `"invalid token"` - Token does not exist or has already been invalidated
+
+## Example Request
+
+```bash
+curl -X POST https://api.mirage.com/api/logout \
+  -H "Content-Type: application/json" \
+  -d '{
+    "token": "a1b2c3d4-e5f6-7890-g1h2-i3j4k5l6m7n8"
+  }'
+```
+
+## Example Response
+
+```json
+{
+  "message": "logged out successfully"
+}
+```
+
+## Notes
+
+- The token is set to NULL in the database, completely invalidating it
+- After logout, the token cannot be used for any authenticated requests
+- Attempting to logout with an already-invalidated token will return a 401 error
+- This is a secure logout that ensures the session cannot be reused

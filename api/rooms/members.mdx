@@ -1,0 +1,89 @@
+---
+title: "Get Room Members"
+api: "GET /api/room_members/<room_id>"
+description: "Retrieve the list of members in a chat room"
+---
+
+## Overview
+
+Returns a list of all usernames that are members of the specified chat room. Any authenticated user can view the member list of any room.
+
+## Authentication
+
+Requires a valid authentication token in the Authorization header.
+
+## Request
+
+### Headers
+
+<ParamField header="Authorization" type="string" required>
+  User authentication token
+</ParamField>
+
+### Path Parameters
+
+<ParamField path="room_id" type="integer" required>
+  The ID of the room to retrieve members from
+</ParamField>
+
+## Response
+
+<ResponseField name="members" type="array">
+  Array of usernames who are members of the room
+</ResponseField>
+
+## Status Codes
+
+- **200**: Successfully retrieved member list
+- **401**: Unauthorized - invalid or missing token
+- **404**: No members in this room (room may not exist)
+
+## Error Responses
+
+### Invalid Token
+```json
+{
+  "error": "invalid token, please re-login"
+}
+```
+
+### Unauthorized
+```json
+{
+  "error": "unauthorized"
+}
+```
+
+### No Members Found
+```json
+{
+  "error": "no members in this room"
+}
+```
+
+## Example
+
+```bash
+curl -X GET https://api.mirage.com/api/room_members/42 \
+  -H "Authorization: your-auth-token"
+```
+
+### Success Response
+
+```json
+{
+  "members": [
+    "john_doe",
+    "jane_smith",
+    "alice_wonder",
+    "bob_builder"
+  ]
+}
+```
+
+## Notes
+
+- Any authenticated user can view the member list of any room.
+- The room creator is automatically included as a member.
+- If no members exist, a 404 error is returned (this typically means the room doesn't exist).
+- Members are returned as a simple array of username strings.

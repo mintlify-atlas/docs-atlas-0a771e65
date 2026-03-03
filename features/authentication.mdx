@@ -1,0 +1,217 @@
+---
+title: 'Authentication & Security'
+description: 'User registration, login, and secure session management in Mirage'
+icon: 'shield-halved'
+---
+
+Mirage provides a secure authentication system with token-based session management, password hashing, and user validation.
+
+## User Registration
+
+New users can join Mirage by creating an account with their credentials and profile information.
+
+<Steps>
+  <Step title="Fill Registration Form">
+    Provide your username, email, password, and optional profile details:
+    - **Username**: Unique identifier for your account
+    - **Email**: Used for account verification and recovery
+    - **Avatar URL**: Optional profile picture link
+    - **Description**: Bio with up to 500 words
+  </Step>
+  
+  <Step title="Submit Registration">
+    Click the register button to create your account. The system will:
+    - Validate all required fields are filled
+    - Check username and email uniqueness
+    - Hash your password using Werkzeug's secure password hashing
+    - Create your user profile with initial stats (0 followers, 0 posts, etc.)
+  </Step>
+  
+  <Step title="Welcome to Mirage">
+    Upon successful registration, you'll receive a welcome message and can log in immediately.
+  </Step>
+</Steps>
+
+### Registration Example
+
+```python app/routes/auth.py:11-53
+@auth_bp.route('/api/register',methods=['POST'])
+def register():
+    data = request.get_json()
+    username = data.get('username', '').strip()
+    email = data.get('email', '').strip()
+    avatar_url = data.get('avatar_url', '').strip()
+    description = data.get('description') or ''
+    password = data.get('password', '')
+
+    if not username or not email or not password:
+        return jsonify({'error':"I can't see a single field you filled"}),400
+    
+    # Validate description length (max 500 words)
+    word_count = len(description.split())
+    if word_count > 500:
+        return jsonify({'error':"You are talking too much in the description"}),400
+    
+    # Hash password for secure storage
+    hashed_pw = generate_password_hash(password)
+
+    # Create user and initialize profile stats
+    c.execute('INSERT INTO users (username,email,avatar_url,description,password) VALUES (?,?,?,?,?)',(username,email,avatar_url,description,hashed_pw))
+    c.execute('INSERT INTO user_profile (username, followers, following, posts, upvotes, downvotes) VALUES (?, 0, 0, 0, 0, 0)', (username,))
+```
+
+<Info>
+  **Security Note**: All passwords are hashed using Werkzeug's `generate_password_hash()` function before storage. Plain text passwords are never stored in the database.
+</Info>
+
+## User Login
+
+Log into your Mirage account to access all features and your personalized feed.
+
+<Tabs>
+  <Tab title="Login Flow">
+    1. Enter your username and password
+    2. System verifies credentials against stored hash
+    3. Receive authentication token for session management
+    4. Token is used for all subsequent API requests
+  </Tab>
+  
+  <Tab title="Token Authentication">
+    Mirage uses UUID-based tokens for session management:
+    
+    ```python app/routes/auth.py:77-82
+    token = str(uuid.uuid4())
+    c.execute('UPDATE users SET token=? WHERE username=?', (token, username))
+    conn.commit()
+    
+    return jsonify({'token': token, 'username': username}), 200
+    ```
+    
+    Include this token in the `Authorization` header for all authenticated requests.
+  </Tab>
+  
+  <Tab title="Error Handling">
+    Common login errors:
+    - **User not found**: Username doesn't exist in database
+    - **Wrong password**: Password hash doesn't match
+    - **Missing fields**: Username or password not provided
+  </Tab>
+</Tabs>
+
+### Login Authentication Code
+
+```python app/routes/auth.py:55-82
+@auth_bp.route('/api/login', methods=['POST'])
+def login():
+    data = request.get_json()
+    username = data.get('username')
+    password = data.get('password')
+
+    if not username or not password:
+        return jsonify({'error': "I can't see a single field you filled"}), 400
+
+    # Retrieve stored password hash
+    c.execute('SELECT password FROM users WHERE username=?', (username,))
+    row = c.fetchone()
+    if not row:
+        return jsonify({'error': 'user not found'}), 404
+
+    # Verify password against hash
+    stored_password = row[0]
+    if not check_password_hash(stored_password, password):
+        return jsonify({'error': 'wrong password'}), 401
+
+    # Generate session token
+    token = str(uuid.uuid4())
+    c.execute('UPDATE users SET token=? WHERE username=?', (token, username))
+```
+
+## Logout
+
+Securely end your session by invalidating your authentication token.
+
+<Card title="Logout Process" icon="right-from-bracket">
+  When you log out, your session token is removed from the database, preventing any further authenticated requests with that token.
+</Card>
+
+```python app/routes/auth.py:84-108
+@auth_bp.route('/api/logout', methods=['POST'])
+def logout():
+    data = request.get_json()
+    token = data.get('token')
+
+    if not token:
+        return jsonify({'error': 'no token provided'}), 400
+
+    # Verify token exists
+    c.execute('SELECT username FROM users WHERE token=?', (token,))
+    row = c.fetchone()
+
+    if not row:
+        return jsonify({'error': 'invalid token'}), 401
+
+    # Clear token from database
+    c.execute('UPDATE users SET token=NULL WHERE token=?', (token,))
+    conn.commit()
+
+    return jsonify({'message': 'logged out successfully'}), 200
+```
+
+## Security Features
+
+<CardGroup cols={2}>
+  <Card title="Password Hashing" icon="lock">
+    Werkzeug's secure password hashing protects user credentials from database breaches
+  </Card>
+  
+  <Card title="Token-Based Sessions" icon="key">
+    UUID tokens provide secure, stateless authentication for API requests
+  </Card>
+  
+  <Card title="Unique Constraints" icon="fingerprint">
+    Database enforces unique usernames and emails to prevent duplicate accounts
+  </Card>
+  
+  <Card title="Input Validation" icon="check-circle">
+    Server-side validation ensures all required fields are present and properly formatted
+  </Card>
+</CardGroup>
+
+## Database Schema
+
+User authentication relies on the following database structure:
+
+```sql app/db.py:77-88
+CREATE TABLE IF NOT EXISTS users(
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  username TEXT UNIQUE NOT NULL,
+  email TEXT UNIQUE NOT NULL,
+  avatar_url TEXT,
+  description TEXT,
+  password TEXT NOT NULL,
+  token TEXT,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  custom_css TEXT,
+  background_image TEXT
+)
+```
+
+## API Endpoints
+
+<CardGroup cols={3}>
+  <Card title="Register" icon="user-plus" href="/api/auth/register">
+    Create new account
+  </Card>
+  
+  <Card title="Login" icon="right-to-bracket" href="/api/auth/login">
+    Authenticate user
+  </Card>
+  
+  <Card title="Logout" icon="right-from-bracket" href="/api/auth/logout">
+    End session
+  </Card>
+</CardGroup>
+
+<Note>
+  All authenticated endpoints require the `Authorization` header with your session token.
+</Note>

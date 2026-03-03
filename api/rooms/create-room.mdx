@@ -1,0 +1,131 @@
+---
+title: "Create Room"
+api: "POST /api/create_room"
+description: "Create a new chat room (public or private)"
+---
+
+## Overview
+
+Creates a new chat room with a unique name. The authenticated user becomes the room creator and is automatically added as a member. The system enforces a maximum of 5 public rooms - attempting to create more will return an error.
+
+## Authentication
+
+Requires a valid authentication token in the Authorization header.
+
+## Request
+
+### Headers
+
+<ParamField header="Authorization" type="string" required>
+  User authentication token
+</ParamField>
+
+### Body Parameters
+
+<ParamField body="room_name" type="string" required>
+  Name of the room to create. Must be unique and non-empty.
+</ParamField>
+
+<ParamField body="is_private" type="integer" default="0">
+  Set to 1 for a private room, 0 for public. Private rooms require a password.
+</ParamField>
+
+<ParamField body="password" type="string">
+  Password for the room. Required if `is_private` is 1, ignored for public rooms.
+</ParamField>
+
+## Response
+
+<ResponseField name="message" type="string">
+  Confirmation message indicating successful room creation
+</ResponseField>
+
+<ResponseField name="room_id" type="integer">
+  The unique ID of the created room
+</ResponseField>
+
+## Status Codes
+
+- **201**: Room created successfully
+- **400**: Invalid fields, room already exists, or maximum public rooms reached (5)
+- **401**: Unauthorized - invalid or missing token
+
+## Error Responses
+
+### Invalid Fields
+```json
+{
+  "error": "invalid fields received"
+}
+```
+
+### Room Already Exists
+```json
+{
+  "error": "room already exists"
+}
+```
+
+### Maximum Public Rooms Reached
+```json
+{
+  "error": "maximum number of public rooms reached (5). Please create a private room to continue the conversation with the people you would like to"
+}
+```
+
+### Unauthorized
+```json
+{
+  "error": "unauthorized"
+}
+```
+
+### Invalid Room Name Type
+```json
+{
+  "error": "room_name must be a string"
+}
+```
+
+## Example
+
+### Create Public Room
+
+```bash
+curl -X POST https://api.mirage.com/api/create_room \
+  -H "Authorization: your-auth-token" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "room_name": "General Discussion",
+    "is_private": 0
+  }'
+```
+
+### Create Private Room
+
+```bash
+curl -X POST https://api.mirage.com/api/create_room \
+  -H "Authorization: your-auth-token" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "room_name": "Secret Club",
+    "is_private": 1,
+    "password": "secure-password"
+  }'
+```
+
+### Success Response
+
+```json
+{
+  "message": "room \"General Discussion\" created",
+  "room_id": 42
+}
+```
+
+## Notes
+
+- The system limits public rooms to a maximum of 5. Create private rooms if this limit is reached.
+- Room names must be unique across all rooms (public and private).
+- The creator is automatically added as a member of the room.
+- Passwords for private rooms are hashed before storage.

@@ -1,0 +1,70 @@
+---
+title: "Get Followers"
+api: "GET /api/get_followers/{username}"
+description: "Retrieve a user's followers list"
+---
+
+Retrieves a list of users who follow the specified user, ordered by most recent followers first.
+
+## Path Parameters
+
+<ParamField path="username" type="string" required>
+  The username whose followers to retrieve
+</ParamField>
+
+## Response
+
+<ResponseField name="followers" type="array">
+  Array of follower objects
+  
+  <ResponseField name="username" type="string">
+    The follower's username
+  </ResponseField>
+  
+  <ResponseField name="avatar_url" type="string">
+    URL to the follower's avatar image (defaults to "default.png" if not set)
+  </ResponseField>
+</ResponseField>
+
+## Status Codes
+
+<ResponseField name="200" type="Success">
+  Followers retrieved successfully
+</ResponseField>
+
+<ResponseField name="404" type="Error">
+  User not found
+  
+  ```json
+  {
+    "error": "user not found"
+  }
+  ```
+</ResponseField>
+
+## Example Request
+
+```bash
+curl -X GET https://api.example.com/api/get_followers/johndoe
+```
+
+## Example Response
+
+```json
+{
+  "followers": [
+    {
+      "username": "alice",
+      "avatar_url": "https://example.com/avatars/alice.png"
+    },
+    {
+      "username": "bob",
+      "avatar_url": "default.png"
+    },
+    {
+      "username": "charlie",
+      "avatar_url": "https://example.com/avatars/charlie.png"
+    }
+  ]
+}
+```

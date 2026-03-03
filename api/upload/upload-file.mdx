@@ -1,0 +1,126 @@
+---
+title: 'Upload File'
+api: 'POST /api/upload_file'
+description: 'Upload a file to a chat room'
+---
+
+## Overview
+
+Uploads a file to a specified chat room. The file URL is automatically posted as a message in the room. Files are limited to 24MB.
+
+## Authentication
+
+This endpoint requires authentication via an Authorization header containing a valid user token.
+
+## Request
+
+### Headers
+
+<ParamField header="Authorization" type="string" required>
+  User authentication token
+</ParamField>
+
+### Body Parameters
+
+This endpoint accepts `multipart/form-data`.
+
+<ParamField body="file" type="file" required>
+  The file to upload. Maximum size: 24MB.
+</ParamField>
+
+<ParamField body="room_id" type="string" required>
+  The ID of the chat room where the file will be posted
+</ParamField>
+
+## Response
+
+<ResponseField name="message" type="string">
+  Success message
+</ResponseField>
+
+<ResponseField name="file_url" type="string">
+  The URL of the uploaded file
+</ResponseField>
+
+## Status Codes
+
+<ResponseField name="200" type="Success">
+  File uploaded successfully
+</ResponseField>
+
+<ResponseField name="400" type="Bad Request">
+  - No file provided
+  - No file name provided
+  - No room ID provided
+  - File size exceeds the 24MB limit
+</ResponseField>
+
+<ResponseField name="401" type="Unauthorized">
+  - Invalid token or token missing
+  - Unauthorized access (invalid user)
+</ResponseField>
+
+<ResponseField name="403" type="Forbidden">
+  You are not a member of this room
+</ResponseField>
+
+<ResponseField name="500" type="Internal Server Error">
+  - File upload failed
+  - Internal server error
+</ResponseField>
+
+## Example Request
+
+```bash cURL
+curl -X POST https://api.example.com/api/upload_file \
+  -H "Authorization: your-auth-token" \
+  -F "file=@/path/to/your/file.pdf" \
+  -F "room_id=room123"
+```
+
+## Example Response
+
+```json Success (200)
+{
+  "message": "File uploaded successfully",
+  "file_url": "https://storage.example.com/uploads/file123.pdf"
+}
+```
+
+```json Error - Missing Authorization (401)
+{
+  "error": "Invalid token or token missing"
+}
+```
+
+```json Error - No File (400)
+{
+  "error": "No file provided"
+}
+```
+
+```json Error - File Too Large (400)
+{
+  "error": "File size exceeds the 24MB limit"
+}
+```
+
+```json Error - Not a Room Member (403)
+{
+  "error": "You are not a member of this room"
+}
+```
+
+```json Error - Upload Failed (500)
+{
+  "error": "File upload failed: <error details>"
+}
+```
+
+## Notes
+
+- The uploaded file URL is automatically posted as a message in the specified room
+- Only room members can upload files to a room
+- The endpoint validates user membership before allowing the upload
+- Files must have a non-empty filename
+- Maximum file size is 24MB (24 * 1024 * 1024 bytes)

@@ -1,0 +1,517 @@
+---
+title: 'User Profiles'
+description: 'Customizable user profiles with stats, posts, and social connections in Mirage'
+icon: 'id-card'
+---
+
+User profiles in Mirage are fully customizable spaces where users showcase their identity, track their stats, manage connections, and display their content.
+
+## Profile Components
+
+Every Mirage profile includes essential information and social metrics.
+
+<CardGroup cols={2}>
+  <Card title="Basic Information" icon="user">
+    - Username (unique identifier)
+    - Avatar image (custom or default)
+    - Bio/Description (up to 500 words)
+    - Account creation date
+  </Card>
+  
+  <Card title="Profile Stats" icon="chart-line">
+    - Followers count
+    - Following count
+    - Total posts published
+    - Total upvotes received
+    - Total downvotes received
+  </Card>
+  
+  <Card title="Visual Customization" icon="palette">
+    - Custom CSS styling
+    - Background image
+    - Avatar URL customization
+  </Card>
+  
+  <Card title="Social Content" icon="newspaper">
+    - All user's posts displayed chronologically
+    - Post voting metrics
+    - Reply threads
+  </Card>
+</CardGroup>
+
+## Viewing Profiles
+
+Access any user's public profile to see their information and content.
+
+```python app/routes/users.py:78-113
+@users_bp.route('/api/user/<username>',methods=['GET'])
+def get_user(username):
+    conn = get_db_connection()
+    c = conn.cursor()
+    
+    # Get basic user info
+    c.execute('SELECT * FROM users WHERE username=?', (username,))
+    row = c.fetchone()
+    
+    if not row:
+        return jsonify({'error':'user not found'}),404
+    
+    # Get profile stats from user_profile table
+    c.execute('SELECT followers, following, posts, upvotes, downvotes FROM user_profile WHERE username=?', (username,))
+    profile_stats = c.fetchone()
+    
+    user_data = {
+        'username': row[1],
+        'avatar_url': row[3],
+        'description': row[4],
+        'created_at': row[7],
+        'custom_css': row[8],
+        'background_image': row[9],
+        'stats': {
+            'followers': profile_stats[0] if profile_stats else 0,
+            'following': profile_stats[1] if profile_stats else 0,
+            'posts': profile_stats[2] if profile_stats else 0,
+            'upvotes': profile_stats[3] if profile_stats else 0,
+            'downvotes': profile_stats[4] if profile_stats else 0
+        }
+    }
+
+    return jsonify(user_data),200
+```
+
+<Info>
+  Profile viewing is public and doesn't require authentication. Anyone can view any user's profile information.
+</Info>
+
+## Editing Your Profile
+
+Customize your profile settings to reflect your personality and style.
+
+<Tabs>
+  <Tab title="Editable Fields">
+    You can update the following profile settings:
+    
+    - **Email**: Change your account email address
+    - **Avatar URL**: Update your profile picture
+    - **Description**: Edit your bio (max 500 words)
+    - **Password**: Change your account password (securely hashed)
+    - **Custom CSS**: Add personal styling to your profile
+    - **Background Image**: Set a custom background
+  </Tab>
+  
+  <Tab title="Update Settings Code">
+    ```python app/routes/users.py:9-76
+    @users_bp.route('/api/user/settings', methods=['POST'])
+    def update_settings():
+        token = request.headers.get('Authorization')
+        data = request.get_json()
+        
+        email = data.get('email')
+        avatar_url = data.get('avatar_url')
+        description = data.get('description')
+        password = data.get('password')
+        custom_css = data.get('custom_css')
+        background_image = data.get('background_image')
+
+        # Get user by token
+        c.execute('SELECT username FROM users WHERE token=?', (token,))
+        user = c.fetchone()
+        username = user[0]
+
+        # Dynamically build update query
+        updates = []
+        params = []
+
+        if email:
+            updates.append("email = ?")
+            params.append(email)
+        if avatar_url:
+            updates.append("avatar_url = ?")
+            params.append(avatar_url)
+        if password:
+            updates.append("password = ?")
+            params.append(generate_password_hash(password))
+        # ... more fields
+
+        query = f"UPDATE users SET {', '.join(updates)} WHERE username = ?"
+        c.execute(query, tuple(params))
+    ```
+  </Tab>
+  
+  <Tab title="Security">
+    - **Authentication Required**: Only you can edit your own profile
+    - **Password Hashing**: Passwords are hashed before storage using `generate_password_hash()`
+    - **Email Validation**: System prevents duplicate emails across accounts
+  </Tab>
+</Tabs>
+
+<Warning>
+  **Email Uniqueness**: Each email can only be associated with one account. Attempting to use an existing email will result in an error.
+</Warning>
+
+## Profile Statistics
+
+Mirage automatically tracks and displays comprehensive user statistics.
+
+### Stats Tracking
+
+```sql app/db.py:113-122
+CREATE TABLE IF NOT EXISTS user_profile (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  username TEXT UNIQUE NOT NULL,
+  followers INTEGER DEFAULT 0,
+  following INTEGER DEFAULT 0,
+  posts INTEGER DEFAULT 0,
+  upvotes INTEGER DEFAULT 0,
+  downvotes INTEGER DEFAULT 0,
+  FOREIGN KEY(username) REFERENCES users(username)
+)
+```
+
+<AccordionGroup>
+  <Accordion title="Followers & Following">
+    Automatically updated when users follow/unfollow:
+    
+    ```python app/routes/users.py:148-156
+    # When someone follows you
+    c.execute('INSERT INTO following (follower, following) VALUES (?, ?)', 
+              (username, target_username))
+    c.execute('UPDATE user_profile SET following = following + 1 WHERE username=?', 
+              (username,))
+    c.execute('UPDATE user_profile SET followers = followers + 1 WHERE username=?', 
+              (target_username,))
+    ```
+  </Accordion>
+  
+  <Accordion title="Post Count">
+    Incremented whenever you create a post or reply:
+    
+    ```python app/routes/posts.py:33-35
+    c.execute('INSERT INTO posts (username,content) VALUES (?,?)',
+              (username,content))
+    c.execute('UPDATE user_profile SET posts = posts + 1 WHERE username=?', 
+              (username,))
+    ```
+  </Accordion>
+  
+  <Accordion title="Vote Counts">
+    Updated when your posts receive upvotes or downvotes:
+    
+    ```python app/routes/posts.py:128-133
+    if vote_type == 'up':
+        c.execute('UPDATE posts SET upvotes = upvotes + 1 WHERE id=?', (post_id,))
+        c.execute('UPDATE user_profile SET upvotes = upvotes + 1 WHERE username=?', 
+                  (post_author,))
+    ```
+  </Accordion>
+</AccordionGroup>
+
+## Following System
+
+Build your network by following other Mirage users.
+
+<Steps>
+  <Step title="Follow a User">
+    Visit their profile and click the follow button
+    
+    ```python app/routes/users.py:116-157
+    @users_bp.route('/api/follow', methods=['POST'])
+    def follow_user():
+        # Verify target user exists
+        c.execute('SELECT username FROM users WHERE username=?', (target_username,))
+        if not c.fetchone():
+            return jsonify({'error': 'user not found'}), 404
+
+        # Check if already following
+        c.execute('SELECT * FROM following WHERE follower=? AND following=?', 
+                  (username, target_username))
+        if c.fetchone():
+            return jsonify({'error': 'already following'}), 400
+
+        # Create follow relationship
+        c.execute('INSERT INTO following (follower, following) VALUES (?, ?)', 
+                  (username, target_username))
+    ```
+  </Step>
+  
+  <Step title="Automatic Stats Update">
+    Your following count increases, their follower count increases
+  </Step>
+  
+  <Step title="Feed Integration">
+    Their posts now appear in your For You Page
+  </Step>
+</Steps>
+
+### Unfollow
+
+```python app/routes/users.py:159-192
+@users_bp.route('/api/unfollow', methods=['POST'])
+def unfollow_user():
+    # Remove follow relationship
+    c.execute('DELETE FROM following WHERE follower=? AND following=?', 
+              (username, target_username))
+    
+    if c.rowcount == 0:
+        return jsonify({'error': 'not following this user'}), 400
+
+    # Update follower counts (decrement)
+    c.execute('UPDATE user_profile SET following = following - 1 WHERE username=?', 
+              (username,))
+    c.execute('UPDATE user_profile SET followers = followers - 1 WHERE username=?', 
+              (target_username,))
+```
+
+<Info>
+  You can only unfollow users you're currently following. The system validates the relationship exists before removing it.
+</Info>
+
+## Viewing Connections
+
+See who follows a user and who they follow.
+
+<Tabs>
+  <Tab title="View Followers">
+    ```python app/routes/users.py:221-244
+    @users_bp.route('/api/get_followers/<username>', methods=['GET'])
+    def get_followers(username):
+        # Get followers with their avatars
+        c.execute('''
+            SELECT u.username, u.avatar_url 
+            FROM following f
+            JOIN users u ON f.follower = u.username
+            WHERE f.following = ?
+            ORDER BY f.created_at DESC
+        ''', (username,))
+        
+        followers = [{'username': row[0], 'avatar_url': row[1] or 'default.png'} 
+                     for row in c.fetchall()]
+    ```
+  </Tab>
+  
+  <Tab title="View Following">
+    ```python app/routes/users.py:246-269
+    @users_bp.route('/api/get_following/<username>', methods=['GET'])
+    def get_following(username):
+        # Get following with their avatars
+        c.execute('''
+            SELECT u.username, u.avatar_url 
+            FROM following f
+            JOIN users u ON f.following = u.username
+            WHERE f.follower = ?
+            ORDER BY f.created_at DESC
+        ''', (username,))
+        
+        following = [{'username': row[0], 'avatar_url': row[1] or 'default.png'} 
+                     for row in c.fetchall()]
+    ```
+  </Tab>
+  
+  <Tab title="Check Follow Status">
+    ```python app/routes/users.py:194-218
+    @users_bp.route('/api/check_follow', methods=['GET'])
+    def check_follow():
+        # Check if following specific user
+        c.execute('SELECT * FROM following WHERE follower=? AND following=?', 
+                  (username, target_username))
+        is_following = bool(c.fetchone())
+
+        return jsonify({'is_following': is_following}), 200
+    ```
+  </Tab>
+</Tabs>
+
+## Profile Customization
+
+Make your profile unique with custom styling and backgrounds.
+
+<Card title="Custom CSS" icon="code">
+  Add your own CSS to personalize your profile's appearance:
+  
+  ```python
+  custom_css = """
+  .profile-header {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    border-radius: 10px;
+  }
+  """
+  ```
+  
+  CSS is stored in the database and applied when users view your profile.
+</Card>
+
+<Card title="Background Images" icon="image">
+  Set a custom background image URL to personalize your profile:
+  
+  ```python
+  background_image = "https://example.com/my-background.jpg"
+  ```
+</Card>
+
+## User Posts
+
+View all posts created by a specific user on their profile.
+
+```python app/routes/posts.py:43-63
+@posts_bp.route('/api/get_posts/<username>',methods=['GET'])
+def get_posts(username):
+    c.execute('''SELECT id, username, content, created_at, upvotes, downvotes 
+                 FROM posts 
+                 WHERE username=? 
+                 ORDER BY created_at DESC''',(username,))
+    rows = c.fetchall()
+    
+    posts = []
+    for row in rows:
+        post_data = {
+            'id': row[0],
+            'username': row[1],
+            'content': row[2],
+            'created_at': row[3],
+            'upvotes': row[4],
+            'downvotes': row[5]
+        }
+        posts.append(post_data)
+    
+    return jsonify({'posts': posts}), 200
+```
+
+<Info>
+  Posts are displayed in reverse chronological order (newest first) on user profiles.
+</Info>
+
+## Profile Initialization
+
+New user profiles are automatically created with default stats during registration.
+
+```python app/routes/auth.py:44-48
+# Initialize all stats to 0
+c.execute('''
+INSERT INTO user_profile (username, followers, following, posts, upvotes, downvotes)
+VALUES (?, 0, 0, 0, 0, 0)
+''', (username,))
+```
+
+<Steps>
+  <Step title="User Registration">
+    When a new account is created, a corresponding profile entry is initialized
+  </Step>
+  
+  <Step title="Default Values">
+    All counters start at 0 (followers, following, posts, votes)
+  </Step>
+  
+  <Step title="Auto-Increment">
+    Stats automatically update as the user interacts with the platform
+  </Step>
+</Steps>
+
+## Database Schema
+
+<Tabs>
+  <Tab title="Users Table">
+    ```sql app/db.py:77-88
+    CREATE TABLE IF NOT EXISTS users(
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      username TEXT UNIQUE NOT NULL,
+      email TEXT UNIQUE NOT NULL,
+      avatar_url TEXT,
+      description TEXT,
+      password TEXT NOT NULL,
+      token TEXT,
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      custom_css TEXT,
+      background_image TEXT
+    )
+    ```
+  </Tab>
+  
+  <Tab title="Profile Table">
+    ```sql app/db.py:113-122
+    CREATE TABLE IF NOT EXISTS user_profile (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      username TEXT UNIQUE NOT NULL,
+      followers INTEGER DEFAULT 0,
+      following INTEGER DEFAULT 0,
+      posts INTEGER DEFAULT 0,
+      upvotes INTEGER DEFAULT 0,
+      downvotes INTEGER DEFAULT 0,
+      FOREIGN KEY(username) REFERENCES users(username)
+    )
+    ```
+  </Tab>
+  
+  <Tab title="Following Table">
+    ```sql app/db.py:142-150
+    CREATE TABLE IF NOT EXISTS following (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      follower TEXT NOT NULL,
+      following TEXT NOT NULL,
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      FOREIGN KEY(follower) REFERENCES users(username),
+      FOREIGN KEY(following) REFERENCES users(username),
+      UNIQUE(follower, following)
+    )
+    ```
+  </Tab>
+</Tabs>
+
+## Profile Features Summary
+
+<CardGroup cols={2}>
+  <Card title="Public Visibility" icon="eye">
+    All profiles are publicly viewable without authentication
+  </Card>
+  
+  <Card title="Real-Time Stats" icon="chart-bar">
+    Statistics update instantly as users interact with content
+  </Card>
+  
+  <Card title="Full Customization" icon="paintbrush">
+    Custom CSS and backgrounds for personal expression
+  </Card>
+  
+  <Card title="Social Graph" icon="project-diagram">
+    View followers and following to understand user networks
+  </Card>
+  
+  <Card title="Content History" icon="clock-rotate-left">
+    All user posts accessible from their profile
+  </Card>
+  
+  <Card title="Secure Updates" icon="shield-check">
+    Only the profile owner can edit their settings
+  </Card>
+</CardGroup>
+
+## API Endpoints
+
+<CardGroup cols={3}>
+  <Card title="Get Profile" icon="id-card" href="/api/users/get-profile">
+    View user profile
+  </Card>
+  
+  <Card title="Update Settings" icon="gear">
+    Edit profile settings
+  </Card>
+  
+  <Card title="Follow User" icon="user-plus" href="/api/users/follow">
+    Follow a user
+  </Card>
+  
+  <Card title="Unfollow User" icon="user-minus" href="/api/users/unfollow">
+    Unfollow a user
+  </Card>
+  
+  <Card title="Get Followers" icon="users" href="/api/users/followers">
+    View followers list
+  </Card>
+  
+  <Card title="Get Following" icon="users" href="/api/users/following">
+    View following list
+  </Card>
+</CardGroup>
+
+<Note>
+  Profile editing requires authentication, but viewing profiles is public and accessible to all users.
+</Note>

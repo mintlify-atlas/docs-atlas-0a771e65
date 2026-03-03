@@ -1,0 +1,84 @@
+---
+title: "Unfollow User"
+api: "POST /api/unfollow"
+description: "Unfollow a user"
+---
+
+Removes a following relationship between the authenticated user and a target user. Updates follower and following counts automatically.
+
+## Headers
+
+<ParamField header="Authorization" type="string" required>
+  Authentication token for the current user
+</ParamField>
+
+## Body Parameters
+
+<ParamField body="username" type="string" required>
+  The username of the user to unfollow
+</ParamField>
+
+## Response
+
+<ResponseField name="message" type="string">
+  Confirmation message indicating successful unfollow action
+</ResponseField>
+
+## Status Codes
+
+<ResponseField name="200" type="Success">
+  User unfollowed successfully
+  
+  ```json
+  {
+    "message": "unfollowed {username}"
+  }
+  ```
+</ResponseField>
+
+<ResponseField name="400" type="Error">
+  Bad request - missing fields or not following the user
+  
+  Missing fields:
+  ```json
+  {
+    "error": "missing fields"
+  }
+  ```
+  
+  Not following:
+  ```json
+  {
+    "error": "not following this user"
+  }
+  ```
+</ResponseField>
+
+<ResponseField name="401" type="Error">
+  Unauthorized - invalid or missing authentication token
+  
+  ```json
+  {
+    "error": "unauthorized"
+  }
+  ```
+</ResponseField>
+
+## Example Request
+
+```bash
+curl -X POST https://api.example.com/api/unfollow \
+  -H "Authorization: your-auth-token" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "username": "johndoe"
+  }'
+```
+
+## Example Response
+
+```json
+{
+  "message": "unfollowed johndoe"
+}
+```
