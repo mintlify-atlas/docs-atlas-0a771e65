@@ -1,0 +1,39 @@
+---
+title: Get user count
+description: Get the total number of registered users on the platform
+---
+
+## Endpoint
+
+```
+GET /api/usercount
+```
+
+Retrieve the total count of all registered users on the Mirage platform.
+
+## Response
+
+Returns a plain text number (not JSON) representing the total user count.
+
+## Status codes
+
+- **200**: Count retrieved successfully
+
+## Example request
+
+```bash
+curl https://api.example.com/api/usercount
+```
+
+## Example response
+
+```
+1542
+```
+
+## Notes
+
+- No authentication required - this is public information
+- Returns plain text, not JSON
+- Useful for displaying platform growth metrics
+- Counts all users in the database, regardless of account status

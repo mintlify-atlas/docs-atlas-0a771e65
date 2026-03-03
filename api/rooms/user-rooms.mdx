@@ -1,0 +1,99 @@
+---
+title: Get user's rooms
+description: Retrieve all rooms (public and private) that the authenticated user is a member of
+---
+
+## Endpoint
+
+```
+GET /api/user_rooms
+```
+
+Get a list of all chat rooms that the authenticated user has joined, including both public and private rooms.
+
+## Headers
+
+<ParamField header="Authorization" type="string" required>
+  User authentication token received from login
+</ParamField>
+
+## Response
+
+<ResponseField name="rooms" type="array">
+  Array of room objects the user is a member of
+  
+  <Expandable title="Room object">
+    <ResponseField name="room_id" type="integer">
+      Unique room identifier
+    </ResponseField>
+    
+    <ResponseField name="name" type="string">
+      Name of the room
+    </ResponseField>
+    
+    <ResponseField name="is_private" type="integer">
+      `1` if the room is private (password-protected), `0` if public
+    </ResponseField>
+  </Expandable>
+</ResponseField>
+
+<ResponseField name="error" type="string">
+  Error message if the request failed
+</ResponseField>
+
+## Status codes
+
+- **200**: Rooms retrieved successfully
+- **401**: Unauthorized (invalid or missing token)
+
+## Example request
+
+```bash
+curl https://api.example.com/api/user_rooms \
+  -H "Authorization: your-token-here"
+```
+
+## Example responses
+
+<CodeGroup>
+```json Success (200)
+{
+  "rooms": [
+    {
+      "room_id": 1,
+      "name": "General Chat",
+      "is_private": 0
+    },
+    {
+      "room_id": 5,
+      "name": "Team Alpha",
+      "is_private": 1
+    },
+    {
+      "room_id": 8,
+      "name": "Gaming Lounge",
+      "is_private": 0
+    }
+  ]
+}
+```
+
+```json No rooms (200)
+{
+  "rooms": []
+}
+```
+
+```json Unauthorized (401)
+{
+  "error": "unauthorized"
+}
+```
+</CodeGroup>
+
+## Notes
+
+- Returns both public and private rooms the user has joined
+- Does not include public rooms the user hasn't joined
+- Use this endpoint to display a user's room list in navigation
+- Use `/api/rooms` to discover new public rooms to join

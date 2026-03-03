@@ -1,0 +1,81 @@
+---
+title: Check follow status
+description: Check if the authenticated user is following a specific user
+---
+
+## Endpoint
+
+```
+GET /api/check_follow
+```
+
+Check whether the authenticated user is currently following a target user.
+
+## Headers
+
+<ParamField header="Authorization" type="string" required>
+  User authentication token received from login
+</ParamField>
+
+## Query parameters
+
+<ParamField query="username" type="string" required>
+  Username of the target user to check follow status for
+</ParamField>
+
+## Response
+
+<ResponseField name="is_following" type="boolean">
+  `true` if the authenticated user follows the target user, `false` otherwise
+</ResponseField>
+
+<ResponseField name="error" type="string">
+  Error message if the request failed
+</ResponseField>
+
+## Status codes
+
+- **200**: Successfully checked follow status
+- **400**: Missing fields (username or token)
+- **401**: Unauthorized (invalid token)
+
+## Example request
+
+```bash
+curl -X GET "https://api.example.com/api/check_follow?username=johndoe" \
+  -H "Authorization: your-token-here"
+```
+
+## Example responses
+
+<CodeGroup>
+```json Following (200)
+{
+  "is_following": true
+}
+```
+
+```json Not following (200)
+{
+  "is_following": false
+}
+```
+
+```json Missing fields (400)
+{
+  "error": "missing fields"
+}
+```
+
+```json Unauthorized (401)
+{
+  "error": "unauthorized"
+}
+```
+</CodeGroup>
+
+## Notes
+
+- This endpoint does not verify if the target user exists
+- Returns `false` if the target user doesn't exist or isn't followed
+- Useful for UI state management (showing follow/unfollow buttons)

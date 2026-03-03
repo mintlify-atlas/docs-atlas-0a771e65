@@ -1,0 +1,46 @@
+---
+title: Ping server
+description: Health check endpoint to verify server availability
+---
+
+## Endpoint
+
+```
+GET /api/ping
+```
+
+Simple health check endpoint that confirms the server is running and responding to requests.
+
+## Response
+
+<ResponseField name="message" type="string">
+  Always returns `"pong"` when the server is healthy
+</ResponseField>
+
+## Status codes
+
+- **200**: Server is healthy and responding
+
+## Example request
+
+```bash
+curl https://api.example.com/api/ping
+```
+
+## Example response
+
+```json
+{
+  "message": "pong"
+}
+```
+
+## Notes
+
+- No authentication required
+- Use this endpoint for:
+  - Server health monitoring
+  - Uptime checks
+  - Connection testing
+  - Load balancer health probes
+- Always returns 200 status if the server is running

@@ -1,0 +1,110 @@
+---
+title: Update user settings
+description: Update user profile settings including email, avatar, description, password, and custom styling
+---
+
+## Endpoint
+
+```
+POST /api/user/settings
+```
+
+Update various user profile settings. All fields are optional - only provided fields will be updated.
+
+## Headers
+
+<ParamField header="Authorization" type="string" required>
+  User authentication token received from login
+</ParamField>
+
+## Request body
+
+<ParamField body="email" type="string">
+  New email address for the user
+</ParamField>
+
+<ParamField body="avatar_url" type="string">
+  URL to user's avatar image
+</ParamField>
+
+<ParamField body="description" type="string">
+  User bio/description text
+</ParamField>
+
+<ParamField body="password" type="string">
+  New password (will be hashed before storage)
+</ParamField>
+
+<ParamField body="custom_css" type="string">
+  Custom CSS to style the user's profile page
+</ParamField>
+
+<ParamField body="background_image" type="string">
+  URL to background image for user's profile
+</ParamField>
+
+## Response
+
+<ResponseField name="message" type="string">
+  Success message confirming settings update
+</ResponseField>
+
+<ResponseField name="error" type="string">
+  Error message if the request failed
+</ResponseField>
+
+## Status codes
+
+- **200**: Settings updated successfully
+- **400**: No fields to update or email already taken
+- **401**: Unauthorized (invalid or missing token)
+- **500**: Internal server error
+
+## Example request
+
+```bash
+curl -X POST https://api.example.com/api/user/settings \
+  -H "Authorization: your-token-here" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "email": "newemail@example.com",
+    "avatar_url": "https://example.com/avatar.png",
+    "description": "Updated bio",
+    "custom_css": ".profile { color: blue; }"
+  }'
+```
+
+## Example responses
+
+<CodeGroup>
+```json Success (200)
+{
+  "message": "settings updated successfully"
+}
+```
+
+```json No fields (400)
+{
+  "error": "no fields to update"
+}
+```
+
+```json Email taken (400)
+{
+  "error": "email already taken"
+}
+```
+
+```json Unauthorized (401)
+{
+  "error": "unauthorized"
+}
+```
+</CodeGroup>
+
+## Notes
+
+- At least one field must be provided for update
+- Passwords are automatically hashed using Werkzeug's password hashing
+- Email must be unique across all users
+- All fields are optional - only send what you want to update

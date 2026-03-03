@@ -1,0 +1,86 @@
+---
+title: Get post by ID
+description: Retrieve a specific post using its unique identifier
+---
+
+## Endpoint
+
+```
+GET /api/get_post_by_id/<post_id>
+```
+
+Retrieve detailed information about a single post by its ID.
+
+## Path parameters
+
+<ParamField path="post_id" type="integer" required>
+  Unique identifier of the post to retrieve
+</ParamField>
+
+## Response
+
+<ResponseField name="id" type="integer">
+  Unique post identifier
+</ResponseField>
+
+<ResponseField name="username" type="string">
+  Username of the post author
+</ResponseField>
+
+<ResponseField name="content" type="string">
+  Post content text (max 512 characters)
+</ResponseField>
+
+<ResponseField name="created_at" type="string">
+  ISO timestamp of when the post was created
+</ResponseField>
+
+<ResponseField name="upvotes" type="integer">
+  Number of upvotes the post has received
+</ResponseField>
+
+<ResponseField name="downvotes" type="integer">
+  Number of downvotes the post has received
+</ResponseField>
+
+<ResponseField name="error" type="string">
+  Error message if the post was not found
+</ResponseField>
+
+## Status codes
+
+- **200**: Post retrieved successfully
+- **404**: Post not found
+
+## Example request
+
+```bash
+curl https://api.example.com/api/get_post_by_id/123
+```
+
+## Example responses
+
+<CodeGroup>
+```json Success (200)
+{
+  "id": 123,
+  "username": "alice",
+  "content": "Just joined Mirage! Excited to connect with everyone.",
+  "created_at": "2024-03-15T10:30:00",
+  "upvotes": 15,
+  "downvotes": 2
+}
+```
+
+```json Not found (404)
+{
+  "error": "post not found"
+}
+```
+</CodeGroup>
+
+## Notes
+
+- No authentication required - posts are publicly viewable
+- Useful for deep-linking to specific posts
+- Use alongside `/api/get_replies/<post_id>` to fetch post replies

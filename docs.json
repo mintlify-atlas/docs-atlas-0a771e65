@@ -67,8 +67,10 @@
             "group": "User Management",
             "pages": [
               "api/users/get-profile",
+              "api/users/update-settings",
               "api/users/follow",
               "api/users/unfollow",
+              "api/users/check-follow",
               "api/users/followers",
               "api/users/following"
             ]
@@ -78,8 +80,10 @@
             "pages": [
               "api/posts/create-post",
               "api/posts/get-posts",
+              "api/posts/get-post-by-id",
               "api/posts/vote",
               "api/posts/reply",
+              "api/posts/get-replies",
               "api/posts/fyp"
             ]
           },
@@ -89,6 +93,7 @@
               "api/rooms/create-room",
               "api/rooms/join-room",
               "api/rooms/list-rooms",
+              "api/rooms/user-rooms",
               "api/rooms/send-message",
               "api/rooms/get-messages",
               "api/rooms/members"
@@ -99,13 +104,21 @@
             "pages": [
               "api/inbox/send-message",
               "api/inbox/get-messages",
-              "api/inbox/delete-message"
+              "api/inbox/delete-message",
+              "api/inbox/inbox-count"
             ]
           },
           {
             "group": "File Upload",
             "pages": [
               "api/upload/upload-file"
+            ]
+          },
+          {
+            "group": "Utility",
+            "pages": [
+              "api/utility/ping",
+              "api/utility/user-count"
             ]
           }
         ]

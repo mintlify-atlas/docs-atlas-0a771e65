@@ -1,0 +1,69 @@
+---
+title: Get inbox message count
+description: Get the total number of messages in the user's inbox
+---
+
+## Endpoint
+
+```
+GET /api/inbox_count
+```
+
+Retrieve the count of all inbox messages for the authenticated user (both sent and received).
+
+## Headers
+
+<ParamField header="Authorization" type="string" required>
+  User authentication token received from login
+</ParamField>
+
+## Response
+
+<ResponseField name="inbox_count" type="integer">
+  Total number of messages in the user's inbox (sent + received)
+</ResponseField>
+
+<ResponseField name="error" type="string">
+  Error message if the request failed
+</ResponseField>
+
+## Status codes
+
+- **200**: Count retrieved successfully
+- **401**: Unauthorized (invalid or missing token)
+
+## Example request
+
+```bash
+curl https://api.example.com/api/inbox_count \
+  -H "Authorization: your-token-here"
+```
+
+## Example responses
+
+<CodeGroup>
+```json Success (200)
+{
+  "inbox_count": 12
+}
+```
+
+```json No messages (200)
+{
+  "inbox_count": 0
+}
+```
+
+```json Unauthorized (401)
+{
+  "error": "unauthorized"
+}
+```
+</CodeGroup>
+
+## Notes
+
+- Count includes both messages sent by the user and received by the user
+- Useful for displaying notification badges in the UI
+- Count is updated in real-time as messages are sent or deleted
+- This is a lightweight endpoint - use it for polling or badge updates
