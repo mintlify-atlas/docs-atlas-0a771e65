@@ -1,0 +1,132 @@
+{
+  "projectType": "saas",
+  "projectName": "Mirage",
+  "projectDescription": "Privacy-focused chat application with social features, real-time messaging, and content sharing.",
+  "theme": "palm",
+  "primaryColor": "#8B5CF6",
+  "lightColor": "#A78BFA",
+  "darkColor": "#6D28D9",
+  "navigation": {
+    "tabs": [
+      {
+        "tab": "Documentation",
+        "groups": [
+          {
+            "group": "Get Started",
+            "pages": [
+              "introduction",
+              "quickstart",
+              "installation"
+            ]
+          },
+          {
+            "group": "Core Features",
+            "pages": [
+              "features/authentication",
+              "features/chat-rooms",
+              "features/direct-messaging",
+              "features/social-feed",
+              "features/user-profiles"
+            ]
+          },
+          {
+            "group": "Guides",
+            "pages": [
+              "guides/creating-rooms",
+              "guides/privacy-settings",
+              "guides/file-sharing",
+              "guides/content-moderation"
+            ]
+          }
+        ]
+      },
+      {
+        "tab": "API Reference",
+        "groups": [
+          {
+            "group": "Authentication",
+            "pages": [
+              "api/auth/register",
+              "api/auth/login",
+              "api/auth/logout"
+            ]
+          },
+          {
+            "group": "User Management",
+            "pages": [
+              "api/users/get-profile",
+              "api/users/follow",
+              "api/users/unfollow",
+              "api/users/followers",
+              "api/users/following"
+            ]
+          },
+          {
+            "group": "Posts & Content",
+            "pages": [
+              "api/posts/create-post",
+              "api/posts/get-posts",
+              "api/posts/vote",
+              "api/posts/reply",
+              "api/posts/fyp"
+            ]
+          },
+          {
+            "group": "Chat Rooms",
+            "pages": [
+              "api/rooms/create-room",
+              "api/rooms/join-room",
+              "api/rooms/list-rooms",
+              "api/rooms/send-message",
+              "api/rooms/get-messages",
+              "api/rooms/members"
+            ]
+          },
+          {
+            "group": "Direct Messaging",
+            "pages": [
+              "api/inbox/send-message",
+              "api/inbox/get-messages",
+              "api/inbox/delete-message"
+            ]
+          },
+          {
+            "group": "File Upload",
+            "pages": [
+              "api/upload/upload-file"
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "keyFeatures": [
+    "Privacy-focused real-time chat with public and private rooms",
+    "Social network features with posts, voting, and following",
+    "Direct messaging between users",
+    "Personalized content feed (For You Page)",
+    "File sharing in chat rooms",
+    "User profiles with customization options"
+  ],
+  "publicApiSurface": [
+    "POST /api/register",
+    "POST /api/login",
+    "POST /api/logout",
+    "GET /api/user/<username>",
+    "POST /api/follow",
+    "POST /api/unfollow",
+    "POST /api/create_post",
+    "GET /api/get_posts/<username>",
+    "POST /api/vote_post",
+    "POST /api/reply_to_post",
+    "GET /api/fyp",
+    "POST /api/create_room",
+    "POST /api/join_room",
+    "GET /api/rooms",
+    "POST /api/send_room_message",
+    "GET /api/get_room_messages",
+    "POST /api/send_inbox_message",
+    "GET /api/inbox",
+    "POST /api/upload_file"
+  ]
+}
